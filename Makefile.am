@@ -5,3 +5,5 @@ SUBDIRS = src doc
 doc:
 	cd doc; make doc
 
+ACLOCAL_AMFLAGS = -I m4
+

@@ -13,6 +13,20 @@ AC_CONFIG_FILES(Makefile src/Makefile doc/Makefile doc/doxyfile doc/doxygen_main
 AC_PROG_CXX
 AC_PROG_CC
 
+AC_ARG_ENABLE(gdb,
+			[AS_HELP_STRING([--enable-gdb], [Wether to use debugging flags. Default: no.])],
+			with_debug_flags="$enableval", with_debug_flags="no")
+if test "x$with_debug_flags" == "xyes" ; then
+	DEBUG_FLAGS="-ggdb3 -O0"
+else
+	DEBUG_FLAGS=""
+fi
+CFLAGS="$CFLAGS $DEBUG_FLAGS"
+CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
+
+AX_STDCXX11_FLAG
+CXXFLAGS="$CXXFLAGS $ac_cv_cxx_cxx11_spec"
+
 # when using flex/bison:
 # AC_PROG_LEX
 # AC_PROG_YACC
@@ -22,6 +36,11 @@ AC_PROG_LIBTOOL
 
 # Checks for libraries.
 AC_CHECK_LIB([cgl], [main])
+AC_CHECK_LIB([cgls], [main])
+
+PKG_CHECK_MODULES(RTA, rta)
+AC_SUBST(RTA_CFLAGS)
+AC_SUBST(RTA_LIBS)
 
 # Checks for header files.
 AC_HEADER_STDC
