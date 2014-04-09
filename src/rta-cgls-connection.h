@@ -23,6 +23,19 @@ namespace rta {
 
 	namespace cgls {
 
+		/*! use like
+		 *  <code>
+		 *  	static rta::flat_triangle_list *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
+		 *  	rta::rt_set<rta::simple_aabb, rta::simple_triangle> set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
+		 *	</code>
+		 *
+		 *	note that the cgls objloader has to be setup to keep the vertex data on the cpu. 
+		 *	to do so change the default meaning prior to scene loading as follows:
+		 *	<code>
+		 *		scm_c_eval_string("(define (load-objfile-and-create-objects-with-single-vbo filename objname callback fallback-mat merge-factor)\
+		 *			                  (load-objfile-and-create-objects-with-single-vbo-general filename objname callback fallback-mat #t merge-factor))");
+		 *	</code>
+		 */
 		struct connection : public rta::connection {
 		protected:
 			struct conversion_state {
