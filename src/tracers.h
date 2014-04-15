@@ -2,6 +2,7 @@
 #define __TRACERS_H__ 
 
 #include <iostream>
+#include <algorithm>
 #include <libcgl/cgl.h>
 #include <librta/material.h>
 #include <png++/png.hpp>
@@ -22,14 +23,16 @@ namespace example {
 		virtual void compute() = 0;
 	};
 
-	class simple_lighting : public use_case {
+	class simple_material : public use_case {
+	protected:
 		rt_set<simple_aabb, simple_triangle> set;
 		int w, h;
+		vec3f *hitpoints;
 		vec3f *material;
 		cam_ray_generator_shirley *crgs;
 		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
 	public:
-		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : w(w), h(h), material(0), crgs(0), cpu_bouncer(0) {
+		simple_material(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : w(w), h(h), material(0), crgs(0), cpu_bouncer(0) {
 			material = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
@@ -40,7 +43,7 @@ namespace example {
 			set.rt->ray_generator(set.rgen);
 		}
 
-		void primary_visibility() {
+		virtual void primary_visibility() {
 			cout << "tracing..." << endl;
 			vec3f pos, dir, up;
 			matrix4x4f *lookat_matrix = lookat_matrix_of_cam(current_camera());
@@ -49,9 +52,24 @@ namespace example {
 			extract_up_vec3f_of_matrix(&up, lookat_matrix);
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
+
+			vec3f bc;
+			for (int y = 0; y < h; ++y)
+				for (int x = 0; x < w; ++x) {
+					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
+					if (ti.valid()) {
+						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
+						const vec3_t &va = vertex_a(tri);
+						const vec3_t &vb = vertex_b(tri);
+						const vec3_t &vc = vertex_c(tri);
+						barycentric_interpolation(hitpoints+y*w+x, &bc, &va, &vb, &vc);
+					}
+					else
+						make_vec3f(hitpoints+y*w+x, FLT_MAX, FLT_MAX, FLT_MAX);
+				}
 		}
 
-		void evaluate_material() {
+		virtual void evaluate_material() {
 			cout << "evaluating material..." << endl;
 			for (int y = 0; y < h; ++y) {
 				int y_out = h - y - 1;
@@ -79,13 +97,13 @@ namespace example {
 			}
 		}
 
-		void compute() {
+		virtual void compute() {
 			primary_visibility();
 			evaluate_material();
 			save(material);
 		}
 
-		void save(vec3f *out) {
+		virtual void save(vec3f *out) {
 			cout << "saving output" << endl;
 			png::image<png::rgb_pixel> image(w, h);
 			for (int y = 0; y < h; ++y) {
@@ -96,6 +114,40 @@ namespace example {
 				}
 			}
 			image.write("out.png");
+		}
+	};
+
+
+	class simple_lighting : public simple_material {
+	protected:
+		list<light_ref> lights;
+		vec3f *lighting_buffer;
+
+	public:
+		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : simple_material(org_set, w, h), lighting_buffer(0) {
+			lighting_buffer = new vec3f[w*h];
+		}
+
+		void find_lights() {
+			extern scene_ref the_scene;
+			lights.clear();
+			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next)
+				lights.push_back(ll->ref);
+		}
+
+		void clear_lighting_buffer() {
+			vec3f null {0,0,0};
+			fill(lighting_buffer, lighting_buffer+w*h, null);
+		}
+
+		virtual void add_lighting(light_ref ref, vec3f *lighting_buffer) {
+		}
+
+		virtual void compute() {
+			primary_visibility();
+			evaluate_material();
+			find_lights();
+			clear_lighting_buffer();
 		}
 	};
 
