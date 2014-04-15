@@ -29,6 +29,7 @@ static struct argp_option options[] =
     { "image-path", 'i', "path", 0, "Path to search for images. May be specified multiple times."},
 	{ "res", 'r', "w,h", 0, "Window resolution."},
 	{ "merge-factor", MERGE, "x", 0, "Drawelement collapse threshold."},
+	{ "plugin", 'p', "<rtaplugin>", 0, "RTA plugin to use."},
 	{ 0 }
 };	
 
@@ -73,6 +74,7 @@ static error_t parse_options(int key, char *arg, argp_state *state)
     case 'I':   cmdline.include_path = strdup(arg); break;
     case 'i':   cmdline.image_paths.push_back(sarg); break;
     case 'r':   cmdline.res = read_vec2f(sarg); break;
+    case 'p':   cmdline.plugin = sarg; break;
 	case MERGE: cmdline.merge_factor = atof(arg); break;
 	
 	case ARGP_KEY_ARG:		// process arguments. 
@@ -100,6 +102,7 @@ int parse_cmdline(int argc, char **argv)
     cmdline.res.y = 768;
 	cmdline.scenefile = cmdline.objfile = false;
 	cmdline.merge_factor = 10;
+	cmdline.plugin = "bbvh";
 	int ret = argp_parse(&parser, argc, argv, /*ARGP_NO_EXIT*/0, 0, 0);
 
 	if (cmdline.filename == 0) {

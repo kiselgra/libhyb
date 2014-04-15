@@ -4,6 +4,8 @@
 #include <libcgl/wall-time.h>
 
 #include "cmdline.h"
+#include "rta-cgls-connection.h"
+#include "tracers.h"
 
 #include <GL/freeglut.h>
 #include <string.h>
@@ -69,25 +71,33 @@ void advance_anim(interaction_mode *m, int x, int y) {
 	evaluate_skeletal_animation_at(ar, time);
 }
 
+static rta::cgls::connection *rta_connection = 0;
+static example::use_case *use_case = 0;
+
+void setup_rta(const std::string &plugin) {
+	rta_connection = new rta::cgls::connection(plugin);
+	static rta::flat_triangle_list *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
+	int rays_w = cmdline.res.x, rays_h = cmdline.res.y;
+	rta::rt_set<rta::simple_aabb, rta::simple_triangle> set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
+
+	use_case = new example::simple_lighting(set, rays_w, rays_h);
+
+// 	cpu_bouncer->ray_gen(set.rgen);
+// 	cpu_bouncer->triangle_ptr(set.as->triangle_ptr());
+}
+
+void trace(interaction_mode *m, int x, int y) {
+// 	((cam_ray_generator_shirley*)(set.rgen))->setup(&pos, &dir, &up, fov);
+	use_case->compute();
+}
+	
+
 interaction_mode* make_viewer_mode() {
 	interaction_mode *m = make_interaction_mode("viewer");
 	add_function_key_to_mode(m, 'p', cgls_interaction_no_button, show_fps);
 	add_function_key_to_mode(m, ' ', cgls_interaction_no_button, advance_anim);
+	add_function_key_to_mode(m, 'T', cgls_interaction_shift, trace);
 	return m;
-}
-
-void adjust_view(const vec3f *bb_min, const vec3f *bb_max, vec3f *cam_pos, float *distance) {
-	vec3f bb_center, tmp;
-	sub_components_vec3f(&tmp, bb_max, bb_min);
-	div_vec3f_by_scalar(&tmp, &tmp, 2);
-	add_components_vec3f(&bb_center, &tmp, bb_min);
-	
-	sub_components_vec3f(&tmp, bb_max, bb_min);
-	*distance = length_of_vec3f(&tmp);
-	make_vec3f(&tmp, 0, 0, *distance);
-	add_components_vec3f(cam_pos, &bb_center, &tmp);
-
-	cgl_cam_move_factor = *distance / 20.0f;
 }
 
 extern "C" {
@@ -117,6 +127,10 @@ void actual_main()
 
 	for (list<string>::iterator it = cmdline.image_paths.begin(); it != cmdline.image_paths.end(); ++it)
 		append_image_path(it->c_str());
+
+	// overwrite default obj loader to keep mesh data on the cpu side.
+	scm_c_eval_string("(define (load-objfile-and-create-objects-with-single-vbo filename objname callback fallback-mat merge-factor)\
+	                     (load-objfile-and-create-objects-with-single-vbo-general filename objname callback fallback-mat #t merge-factor))");
 
 	if (cmdline.config != "") {
 		char *config = 0;
@@ -148,6 +162,8 @@ void actual_main()
 	scene_set_lighting(the_scene, apply_deferred_lights);
 
 	finalize_single_material_passes_for_array(&picking_des);
+
+	setup_rta(cmdline.plugin);
 
 	enter_glut_main_loop();
 }

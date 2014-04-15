@@ -1,4 +1,3 @@
-/* $Id$ */
 #ifndef __CMDLINE_H__ 
 #define __CMDLINE_H__ 
 
@@ -19,6 +18,7 @@ typedef struct
 	bool scenefile, objfile;
 	float merge_factor;
 	std::list<std::string> image_paths;
+	std::string plugin;
 } Cmdline;
 
 #ifdef __cplusplus
