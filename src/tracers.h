@@ -1,7 +1,9 @@
 #ifndef __TRACERS_H__ 
 #define __TRACERS_H__ 
 
+#include <iostream>
 #include <libcgl/cgl.h>
+#include <librta/material.h>
 #include <png++/png.hpp>
 
 #include "rta-cgls-connection.h"
@@ -13,6 +15,7 @@
 
 namespace example {
 	using namespace rta;
+	using namespace std;
 
 	class use_case {
 	public:
@@ -36,6 +39,7 @@ namespace example {
 		}
 
 		void compute() {
+			cout << "tracing..." << endl;
 			vec3f pos, dir, up;
 			matrix4x4f *lookat_matrix = lookat_matrix_of_cam(current_camera());
 			extract_pos_vec3f_of_matrix(&pos, lookat_matrix);
@@ -44,20 +48,40 @@ namespace example {
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
 
+			cout << "shading..." << endl;
 			save();
+
+			cout << "done." << endl;
 		}
 
 		void save() {
 			png::image<png::rgb_pixel> image(w, h);
-			for (int y = 0; y < h; ++y)
+			for (int y = 0; y < h; ++y) {
+				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
-					if (ti.valid())
-						image.set_pixel(x, y, png::rgb_pixel(255,255,255));
+					if (ti.valid()) {
+						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
+						material_t *mat = material(tri.material_index);
+						vec3f col = (*mat)();
+						if (mat->diffuse_texture) {
+							vec3_t bc; 
+							ti.barycentric_coord(&bc);
+							const vec2_t &ta = texcoord_a(tri);
+							const vec2_t &tb = texcoord_b(tri);
+							const vec2_t &tc = texcoord_c(tri);
+							vec2_t T;
+							barycentric_interpolation(&T, &bc, &ta, &tb, &tc);
+							col = (*mat)(T);
+						}
+						mul_vec3f_by_scalar(&col, &col, 255);
+						image.set_pixel(x, y_out, png::rgb_pixel(col.x, col.y, col.z));
+					}
 					else
-						image.set_pixel(x, y, png::rgb_pixel(0,0,0));
+						image.set_pixel(x, y_out, png::rgb_pixel(0,0,0));
 				}
-			image.write("bin.png");
+			}
+			image.write("out.png");
 		}
 	};
 
