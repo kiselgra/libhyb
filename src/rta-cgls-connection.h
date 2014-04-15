@@ -7,6 +7,7 @@
 #include <libcgls/cgls.h>
 #include <string>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace rta {
 	
@@ -43,6 +44,7 @@ namespace rta {
 				int triangles, offset;
 				rta::flat_triangle_list *ftl;
 				conversion_state() : triangles(0), offset(0), ftl(0) { scene.id = -1; }
+				std::unordered_map<int, int> material_map;
 			};
 			typedef void (*handler_t)(unsigned int vertices, unsigned int indices, 
 			                          unsigned int start, unsigned int len, 
@@ -51,6 +53,8 @@ namespace rta {
 										  unsigned int len, drawelement_ref de, mesh_ref mesh, conversion_state &state);
 			static void insert_tris(unsigned int vertices, unsigned int indices, unsigned int start, 
 									unsigned int len, drawelement_ref de, mesh_ref mesh, conversion_state &state);
+			static void convert_materials(unsigned int vertices, unsigned int indices, unsigned int start, 
+									      unsigned int len, drawelement_ref de, mesh_ref mesh, conversion_state &state);
 			static void apply_to_scene(handler_t call, conversion_state &state);
 
 		public:
