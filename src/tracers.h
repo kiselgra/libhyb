@@ -27,13 +27,16 @@ namespace example {
 	protected:
 		rt_set<simple_aabb, simple_triangle> set;
 		int w, h;
-		vec3f *hitpoints;
+		vec3f *hitpoints, *normals;
 		vec3f *material;
 		cam_ray_generator_shirley *crgs;
 		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
 	public:
-		simple_material(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : w(w), h(h), material(0), crgs(0), cpu_bouncer(0) {
+		simple_material(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) 
+		: w(w), h(h), material(0), crgs(0), cpu_bouncer(0), hitpoints(0), normals(0) {
 			material = new vec3f[w*h];
+			hitpoints = new vec3f[w*h];
+			normals = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
 			set.bouncer = cpu_bouncer = new rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
@@ -59,13 +62,20 @@ namespace example {
 					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
 					if (ti.valid()) {
 						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
+						ti.barycentric_coord(&bc);
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
 						const vec3_t &vc = vertex_c(tri);
 						barycentric_interpolation(hitpoints+y*w+x, &bc, &va, &vb, &vc);
+						const vec3_t &na = normal_a(tri);
+						const vec3_t &nb = normal_b(tri);
+						const vec3_t &nc = normal_c(tri);
+						barycentric_interpolation(normals+y*w+x, &bc, &na, &nb, &nc);
 					}
-					else
+					else {
 						make_vec3f(hitpoints+y*w+x, FLT_MAX, FLT_MAX, FLT_MAX);
+						make_vec3f(normals+y*w+x, 0, 0, 0);
+					}
 				}
 		}
 
@@ -110,7 +120,7 @@ namespace example {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					vec3f *pixel = out+y*w+x;
-					image.set_pixel(x, y_out, png::rgb_pixel(255*pixel->x, 255*pixel->y, 255*pixel->z)); 
+					image.set_pixel(w-x-1, y_out, png::rgb_pixel(255*pixel->x, 255*pixel->y, 255*pixel->z)); 
 				}
 			}
 			image.write("out.png");
@@ -122,17 +132,20 @@ namespace example {
 	protected:
 		list<light_ref> lights;
 		vec3f *lighting_buffer;
+		scene_ref the_scene;
 
 	public:
-		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : simple_material(org_set, w, h), lighting_buffer(0) {
+		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, scene_ref the_scene) 
+		: simple_material(org_set, w, h), lighting_buffer(0), the_scene(the_scene) {
 			lighting_buffer = new vec3f[w*h];
 		}
 
 		void find_lights() {
-			extern scene_ref the_scene;
 			lights.clear();
-			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next)
+			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next) {
+				cout << "LIGHT " << light_name(ll->ref) << endl;
 				lights.push_back(ll->ref);
+			}
 		}
 
 		void clear_lighting_buffer() {
@@ -140,7 +153,32 @@ namespace example {
 			fill(lighting_buffer, lighting_buffer+w*h, null);
 		}
 
+		virtual void add_lighting(vec3f *lighting_buffer) {
+			for (light_ref ref : lights)
+				add_lighting(ref, lighting_buffer);
+		}
+
 		virtual void add_lighting(light_ref ref, vec3f *lighting_buffer) {
+			int type = light_type(ref);
+			if (type == hemi_light_t) {
+				vec3f *dir = (vec3f*)light_aux(ref);
+				vec3f tmp;
+				for (int y = 0; y < h; ++y)
+					for (int x = 0; x < w; ++x) {
+						vec3f *n = normals+y*w+x;
+						if (n->x != 0 || n->y != 0 || n->z != 0) {
+							float factor = 0.5*(1+dot_vec3f(n, dir));
+							mul_vec3f_by_scalar(&tmp, light_color(ref), factor);
+							add_components_vec3f(lighting_buffer+y*w+x, &tmp, lighting_buffer+y*w+x);
+						}
+					}
+			}
+		}
+
+		virtual void shade(vec3f *out, vec3f *lighting_buffer) {
+			for (int y = 0; y < h; ++y)
+				for (int x = 0; x < w; ++x)
+					mul_components_vec3f(out+y*w+x, material+y*w+x, lighting_buffer+y*w+x);
 		}
 
 		virtual void compute() {
@@ -148,6 +186,9 @@ namespace example {
 			evaluate_material();
 			find_lights();
 			clear_lighting_buffer();
+			add_lighting(lighting_buffer);
+			shade(lighting_buffer, lighting_buffer);
+			save(lighting_buffer);
 		}
 	};
 
