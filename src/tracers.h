@@ -25,10 +25,12 @@ namespace example {
 	class simple_lighting : public use_case {
 		rt_set<simple_aabb, simple_triangle> set;
 		int w, h;
+		vec3f *material;
 		cam_ray_generator_shirley *crgs;
 		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
 	public:
-		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : w(w), h(h), crgs(0), cpu_bouncer(0) {
+		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) : w(w), h(h), material(0), crgs(0), cpu_bouncer(0) {
+			material = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
 			set.bouncer = cpu_bouncer = new rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
@@ -38,7 +40,7 @@ namespace example {
 			set.rt->ray_generator(set.rgen);
 		}
 
-		void compute() {
+		void primary_visibility() {
 			cout << "tracing..." << endl;
 			vec3f pos, dir, up;
 			matrix4x4f *lookat_matrix = lookat_matrix_of_cam(current_camera());
@@ -47,22 +49,17 @@ namespace example {
 			extract_up_vec3f_of_matrix(&up, lookat_matrix);
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
-
-			cout << "shading..." << endl;
-			save();
-
-			cout << "done." << endl;
 		}
 
-		void save() {
-			png::image<png::rgb_pixel> image(w, h);
+		void evaluate_material() {
+			cout << "evaluating material..." << endl;
 			for (int y = 0; y < h; ++y) {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
 					if (ti.valid()) {
 						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
-						material_t *mat = material(tri.material_index);
+						material_t *mat = rta::material(tri.material_index);
 						vec3f col = (*mat)();
 						if (mat->diffuse_texture) {
 							vec3_t bc; 
@@ -74,11 +71,28 @@ namespace example {
 							barycentric_interpolation(&T, &bc, &ta, &tb, &tc);
 							col = (*mat)(T);
 						}
-						mul_vec3f_by_scalar(&col, &col, 255);
-						image.set_pixel(x, y_out, png::rgb_pixel(col.x, col.y, col.z));
+						material[y*w+x] = col;
 					}
 					else
-						image.set_pixel(x, y_out, png::rgb_pixel(0,0,0));
+						make_vec3f(material+y*w+x, 0, 0, 0);
+				}
+			}
+		}
+
+		void compute() {
+			primary_visibility();
+			evaluate_material();
+			save(material);
+		}
+
+		void save(vec3f *out) {
+			cout << "saving output" << endl;
+			png::image<png::rgb_pixel> image(w, h);
+			for (int y = 0; y < h; ++y) {
+				int y_out = h - y - 1;
+				for (int x = 0; x < w; ++x) {
+					vec3f *pixel = out+y*w+x;
+					image.set_pixel(x, y_out, png::rgb_pixel(255*pixel->x, 255*pixel->y, 255*pixel->z)); 
 				}
 			}
 			image.write("out.png");
