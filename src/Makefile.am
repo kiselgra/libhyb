@@ -7,7 +7,6 @@ libhyb_la_SOURCES = \
 					pbrt.h \
 					trav-util.h
 
-
 # for bison/flex
 # AM_CPPFLAGS = -Isrc/
 # AM_YFLAGS = -d -p__yacc_prefix__
@@ -26,6 +25,20 @@ library_include_HEADERS = \
 # AM_CXXFLAGS = -Wall -ansi -pedantic -ggdb -pg
 
 # setting c preprocessor flags for main project
-libhyb_la_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D CGL_GL_VERSION=GL3 $(RTA_CFLAGS)
-libhyb_la_LIBADD = $(RTA_LIBS)
+libhyb_la_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D CGL_GL_VERSION=GL3 $(RTA_CFLAGS) $(CGLS_CFLAGS)
+libhyb_la_LIBADD = $(RTA_LIBS) $(CGLS_LIBS)
 
+if CAN_USE_GUILE
+bin_PROGRAMS = viewer-cgls-rta
+BUILT_SOURCES = cmdline.x
+viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h
+viewer_cgls_rta_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D CGL_GL_VERSION=GL4 -D DATADIR=\"$(cglsdata)\" $(RTA_CFLAGS) $(CGLS_CFLAGS) -DWITH_GUILE
+viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS)
+
+SUFFIXES: .x
+snarf_opts = @GUILE_DEF@ $(AM_CPPFLAGS) $(CPPFLAGS) $(viewer_cgls_rta_CPPFLAGS)
+.c.x:
+	guile-snarf $< $(snarf_opts) > $@
+.cpp.x:
+	guile-snarf $< $(snarf_opts) > $@
+endif

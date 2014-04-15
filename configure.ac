@@ -36,7 +36,33 @@ AC_PROG_LIBTOOL
 
 # Checks for libraries.
 AC_CHECK_LIB([cgl], [main])
-AC_CHECK_LIB([cgls], [main])
+PKG_CHECK_MODULES(CGLS, libcgls)
+AC_SUBST(CGLS_CFLAGS)
+AC_SUBST(CGLS_LDFLAGS)
+
+
+cglsdata="$(pkg-config --variable=datadir libcgls)"
+AC_SUBST([cglsdata])
+
+AC_ARG_ENABLE(scheme,
+			[AS_HELP_STRING([--disable-scheme], [Wether to use scheme. Default: yes.])],
+			with_scheme="$enableval", with_scheme="yes")
+
+if test "x$with_scheme" == "xyes" ; then
+	ifdef([GUILE_FLAGS], [can_use_guile="yes"], [can_use_guile="no"])
+	if test "x$can_use_guile" = "xyes" ; then
+		GUILE_FLAGS
+		GUILE_DEF="-DWITH_GUILE"
+	else
+		GUILE_DEF=""
+	fi
+else
+	can_use_guile="no"
+	GUILE_DEF=""
+fi
+AC_SUBST([GUILE_DEF])
+AM_CONDITIONAL([CAN_USE_GUILE], [test "x$can_use_guile" = "xyes"])
+
 
 PKG_CHECK_MODULES(RTA, rta)
 AC_SUBST(RTA_CFLAGS)
