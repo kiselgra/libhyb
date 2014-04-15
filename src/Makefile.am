@@ -33,6 +33,7 @@ bin_PROGRAMS = viewer-cgls-rta
 BUILT_SOURCES = cmdline.x
 viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h $(libhyb_la_SOURCES)
 viewer_cgls_rta_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D CGL_GL_VERSION=GL4 -D DATADIR=\"$(cglsdata)\" $(RTA_CFLAGS) $(CGLS_CFLAGS) -DWITH_GUILE
+viewer_cgls_rta_CXXFLAGS = -fopenmp
 viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS)
 
 SUFFIXES: .x
