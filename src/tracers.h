@@ -8,6 +8,7 @@
 #include <png++/png.hpp>
 
 #include "rta-cgls-connection.h"
+#include "trav-util.h"
 
 /*  having everything in the header is not really good practice.
  *  i hope this helps to better see what belongs together.
@@ -159,8 +160,10 @@ namespace example {
 		}
 
 		virtual void add_lighting(light_ref ref, vec3f *lighting_buffer) {
+			cout << "CALL " << light_name(ref) << endl;
 			int type = light_type(ref);
 			if (type == hemi_light_t) {
+				cout << "HEMI" << endl;
 				vec3f *dir = (vec3f*)light_aux(ref);
 				vec3f tmp;
 				for (int y = 0; y < h; ++y)
@@ -173,6 +176,42 @@ namespace example {
 						}
 					}
 			}
+			else if (type == spot_light_t) {
+				cout << "SPOT" << endl;
+				float spot_cos_cutoff = *(float*)light_aux(ref);
+				matrix4x4f *trafo = light_trafo(ref);
+				vec3f pos, dir, up;
+				extract_pos_vec3f_of_matrix(&pos, trafo);
+				extract_dir_vec3f_of_matrix(&dir, trafo);
+				extract_up_vec3f_of_matrix(&up, trafo);
+				normalize_vec3f(&dir);
+				vec3f tmp;
+				float cutoff = acos(spot_cos_cutoff);
+				for (int y = 0; y < h; ++y)
+					for (int x = 0; x < w; ++x) {
+						vec3f *normal = normals+y*w+x;
+						if (normal->x != 0 || normal->y != 0 || normal->z != 0) {
+							vec3f *hitpoint = hitpoints+y*w+x;
+							vec3f l = pos - *hitpoint;
+							float distance = length_of_vec3f(&l);
+							normalize_vec3f(&l);
+							float ndotl = max(dot_vec3f(normal, &l), 0.0f);
+							if (ndotl > 0) {
+								vec3f ml = -l;
+								float cos_theta = dot_vec3f(&dir, &ml);
+								if (cos_theta > spot_cos_cutoff) {
+									float spot_factor = cos_theta;
+									float angle = acos(cos_theta);
+									spot_factor *= 1.0 - smoothstep(cutoff * .7, cutoff, angle);
+									tmp = *light_color(ref) *spot_factor *ndotl;
+									add_components_vec3f(lighting_buffer+y*w+x, lighting_buffer+y*w+x, &tmp);
+								}
+							}
+						}
+					}
+			}
+			else
+				cerr << "UNKOWN LIGHT TYPE " << type << endl;
 		}
 
 		virtual void shade(vec3f *out, vec3f *lighting_buffer) {

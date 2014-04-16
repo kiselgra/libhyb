@@ -57,6 +57,24 @@ namespace rta {
 		rta::barycentric_interpolation(&p, &bc, &va, &vb, &vc);
 		return p;
 	}
+
+	inline float clamp(float x, float min, float max) {
+		if (x > max) return max;
+		if (x < min) return min;
+		return x;
+	}
+
+	//! http://en.wikipedia.org/wiki/Smoothstep
+	inline float smoothstep(float edge0, float edge1, float x) {
+		x = clamp((x - edge0)/(edge1 - edge0), 0.0f, 1.0f); 
+		return x*x*(3 - 2*x);
+	}
+
+	//! http://en.wikipedia.org/wiki/Smoothstep
+	inline float smootherstep(float edge0, float edge1, float x) {
+		x = clamp((x - edge0)/(edge1 - edge0), 0.0f, 1.0f);
+		return x*x*x*(x*(x*6 - 15) + 10);
+	}
 }
 
 
