@@ -147,14 +147,45 @@ namespace example {
 				lights.push_back(ll->ref);
 		}
 
-		void clear_lighting_buffer() {
+		void clear_lighting_buffer(vec3f *buffer) {
 			vec3f null {0,0,0};
-			fill(lighting_buffer, lighting_buffer+w*h, null);
+			fill(buffer, buffer+w*h, null);
 		}
 
 		virtual void add_lighting(vec3f *lighting_buffer) {
 			for (light_ref ref : lights)
 				add_lighting(ref, lighting_buffer);
+		}
+
+		inline vec3f spot_contrib(light_ref ref, int x, int y, vec3f *pos, vec3f *normal, vec3f *dir, float spot_cos_cutoff, float cutoff) {
+			vec3f *hitpoint = hitpoints+y*w+x;
+			vec3f l = *pos - *hitpoint;
+			float distance = length_of_vec3f(&l);
+			normalize_vec3f(&l);
+			float ndotl = max(dot_vec3f(normal, &l), 0.0f);
+			if (ndotl > 0) {
+				vec3f ml = -l;
+				float cos_theta = dot_vec3f(dir, &ml);
+				if (cos_theta > spot_cos_cutoff) {
+					float spot_factor = cos_theta;
+					float angle = acos(cos_theta);
+					spot_factor *= 1.0 - smoothstep(cutoff * .7, cutoff, angle);
+					return *light_color(ref) *spot_factor *ndotl;
+				}
+			}
+			return {0,0,0};
+		}
+
+		inline vec3f spot_contrib(light_ref ref, int x, int y) {
+				float cutoff = *(float*)light_aux(ref);
+				matrix4x4f *trafo = light_trafo(ref);
+				vec3f pos, dir;
+				extract_pos_vec3f_of_matrix(&pos, trafo);
+				extract_dir_vec3f_of_matrix(&dir, trafo);
+				normalize_vec3f(&dir);
+				float spot_cos_cutoff = cos(cutoff);
+				vec3f *normal = normals+y*w+x;
+				return spot_contrib(ref, x, y, &pos, normal, &dir, spot_cos_cutoff, cutoff);
 		}
 
 		virtual void add_lighting(light_ref ref, vec3f *lighting_buffer) {
@@ -173,35 +204,20 @@ namespace example {
 					}
 			}
 			else if (type == spot_light_t) {
-				float spot_cos_cutoff = *(float*)light_aux(ref);
+				float cutoff = *(float*)light_aux(ref);
 				matrix4x4f *trafo = light_trafo(ref);
 				vec3f pos, dir, up;
 				extract_pos_vec3f_of_matrix(&pos, trafo);
 				extract_dir_vec3f_of_matrix(&dir, trafo);
 				extract_up_vec3f_of_matrix(&up, trafo);
 				normalize_vec3f(&dir);
-				vec3f tmp;
-				float cutoff = acos(spot_cos_cutoff);
+				float spot_cos_cutoff = cos(cutoff);
 				for (int y = 0; y < h; ++y)
 					for (int x = 0; x < w; ++x) {
 						vec3f *normal = normals+y*w+x;
 						if (normal->x != 0 || normal->y != 0 || normal->z != 0) {
-							vec3f *hitpoint = hitpoints+y*w+x;
-							vec3f l = pos - *hitpoint;
-							float distance = length_of_vec3f(&l);
-							normalize_vec3f(&l);
-							float ndotl = max(dot_vec3f(normal, &l), 0.0f);
-							if (ndotl > 0) {
-								vec3f ml = -l;
-								float cos_theta = dot_vec3f(&dir, &ml);
-								if (cos_theta > spot_cos_cutoff) {
-									float spot_factor = cos_theta;
-									float angle = acos(cos_theta);
-									spot_factor *= 1.0 - smoothstep(cutoff * .7, cutoff, angle);
-									tmp = *light_color(ref) *spot_factor *ndotl;
-									add_components_vec3f(lighting_buffer+y*w+x, lighting_buffer+y*w+x, &tmp);
-								}
-							}
+							vec3f lighting = spot_contrib(ref, x, y, &pos, normal, &dir, spot_cos_cutoff, cutoff);
+							add_components_vec3f(lighting_buffer+y*w+x, lighting_buffer+y*w+x, &lighting);
 						}
 					}
 			}
@@ -219,13 +235,46 @@ namespace example {
 			primary_visibility();
 			evaluate_material();
 			find_lights();
-			clear_lighting_buffer();
+			clear_lighting_buffer(lighting_buffer);
 			add_lighting(lighting_buffer);
 			shade(lighting_buffer, lighting_buffer);
 			save(lighting_buffer);
 		}
 	};
 
+	class simple_lighting_with_shadows : public simple_lighting {
+		list<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
+	public:
+		simple_lighting_with_shadows(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, scene_ref the_scene) 
+		: simple_lighting(org_set, w, h, the_scene) {
+		}
+		
+		void adjust_lighting_buffers() {
+			while (lights.size() < lighting_buffer.size()) {
+				delete [] lighting_buffer.back();
+				lighting_buffer.pop_back();
+			}
+			while (lights.size() > lighting_buffer.size())
+				lighting_buffer.push_back(new vec3f[w*h]);
+		}
+
+		void fill_lighting_buffers() {
+			auto buffer_iter = lighting_buffer.begin();
+			for (auto light_iter = lights.begin(); light_iter != lights.end(); ++light_iter, ++buffer_iter) {
+				add_lighting(*light_iter, *buffer_iter);
+			}
+		}
+
+		virtual void compute() {
+			primary_visibility();
+			evaluate_material();
+			find_lights();
+			adjust_lighting_buffers();
+			for (auto buf : lighting_buffer)
+				clear_lighting_buffer(buf);
+			fill_lighting_buffers();
+		}
+	};
 }
 
 #endif
