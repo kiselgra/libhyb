@@ -121,7 +121,7 @@ namespace example {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					vec3f *pixel = out+y*w+x;
-					image.set_pixel(w-x-1, y_out, png::rgb_pixel(255*pixel->x, 255*pixel->y, 255*pixel->z)); 
+					image.set_pixel(w-x-1, y_out, png::rgb_pixel(clamp(255*pixel->x,0,255), clamp(255*pixel->y,0,255), clamp(255*pixel->z,0,255))); 
 				}
 			}
 			image.write("out.png");
@@ -143,10 +143,8 @@ namespace example {
 
 		void find_lights() {
 			lights.clear();
-			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next) {
-				cout << "LIGHT " << light_name(ll->ref) << endl;
+			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next)
 				lights.push_back(ll->ref);
-			}
 		}
 
 		void clear_lighting_buffer() {
@@ -160,10 +158,8 @@ namespace example {
 		}
 
 		virtual void add_lighting(light_ref ref, vec3f *lighting_buffer) {
-			cout << "CALL " << light_name(ref) << endl;
 			int type = light_type(ref);
 			if (type == hemi_light_t) {
-				cout << "HEMI" << endl;
 				vec3f *dir = (vec3f*)light_aux(ref);
 				vec3f tmp;
 				for (int y = 0; y < h; ++y)
@@ -177,7 +173,6 @@ namespace example {
 					}
 			}
 			else if (type == spot_light_t) {
-				cout << "SPOT" << endl;
 				float spot_cos_cutoff = *(float*)light_aux(ref);
 				matrix4x4f *trafo = light_trafo(ref);
 				vec3f pos, dir, up;
