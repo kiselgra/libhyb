@@ -1,5 +1,5 @@
-#ifndef __TRACERS_H__ 
-#define __TRACERS_H__ 
+#ifndef __LIBHYB_TRACERS_H__ 
+#define __LIBHYB_TRACERS_H__ 
 
 #include <iostream>
 #include <algorithm>

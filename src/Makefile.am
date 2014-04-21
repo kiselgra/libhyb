@@ -5,6 +5,7 @@ libhyb_la_SOURCES = \
 					area-light-rays.cpp area-light-rays.h \
 					rta-cgls-connection.cpp rta-cgls-connection.h \
 					pbrt.h \
+					shadowrays.cpp shadowrays.h \
 					trav-util.h
 
 # for bison/flex
@@ -18,6 +19,7 @@ library_include_HEADERS = \
 					area-light-rays.h \
 					rta-cgls-connection.h \
 					pbrt.h \
+					shadowrays.h \
 					trav-util.h
 
 
