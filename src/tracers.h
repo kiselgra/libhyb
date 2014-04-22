@@ -9,6 +9,7 @@
 
 #include "rta-cgls-connection.h"
 #include "trav-util.h"
+#include "shadowrays.h"
 
 /*  having everything in the header is not really good practice.
  *  i hope this helps to better see what belongs together.
@@ -24,20 +25,22 @@ namespace example {
 		virtual void compute() = 0;
 	};
 
+
+	/*! A very simple example that traces primary rays and evaluates the material at the hitpoints.
+	 *  No shading is applied.
+	 */
 	class simple_material : public use_case {
 	protected:
 		rt_set<simple_aabb, simple_triangle> set;
 		int w, h;
-		vec3f *hitpoints, *normals;
+		image<vec3f, 1> hitpoints, normals;
 		vec3f *material;
 		cam_ray_generator_shirley *crgs;
 		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
 	public:
 		simple_material(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) 
-		: w(w), h(h), material(0), crgs(0), cpu_bouncer(0), hitpoints(0), normals(0) {
+		: w(w), h(h), material(0), crgs(0), cpu_bouncer(0), hitpoints(w,h), normals(w,h) {
 			material = new vec3f[w*h];
-			hitpoints = new vec3f[w*h];
-			normals = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
 			set.bouncer = cpu_bouncer = new rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
@@ -67,15 +70,15 @@ namespace example {
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
 						const vec3_t &vc = vertex_c(tri);
-						barycentric_interpolation(hitpoints+y*w+x, &bc, &va, &vb, &vc);
+						barycentric_interpolation(&hitpoints.pixel(x,y), &bc, &va, &vb, &vc);
 						const vec3_t &na = normal_a(tri);
 						const vec3_t &nb = normal_b(tri);
 						const vec3_t &nc = normal_c(tri);
-						barycentric_interpolation(normals+y*w+x, &bc, &na, &nb, &nc);
+						barycentric_interpolation(&normals.pixel(x,y), &bc, &na, &nb, &nc);
 					}
 					else {
-						make_vec3f(hitpoints+y*w+x, FLT_MAX, FLT_MAX, FLT_MAX);
-						make_vec3f(normals+y*w+x, 0, 0, 0);
+						make_vec3f(&hitpoints.pixel(x,y), FLT_MAX, FLT_MAX, FLT_MAX);
+						make_vec3f(&normals.pixel(x,y), 0, 0, 0);
 					}
 				}
 		}
@@ -128,7 +131,10 @@ namespace example {
 		}
 	};
 
-
+	
+	/*! An extention of the simple_material example that adds lighting by spotlights and hemispherical lights.
+	 *  Does not compute shadows.
+	 */
 	class simple_lighting : public simple_material {
 	protected:
 		list<light_ref> lights;
@@ -158,7 +164,7 @@ namespace example {
 		}
 
 		inline vec3f spot_contrib(light_ref ref, int x, int y, vec3f *pos, vec3f *normal, vec3f *dir, float spot_cos_cutoff, float cutoff) {
-			vec3f *hitpoint = hitpoints+y*w+x;
+			vec3f *hitpoint = &hitpoints.pixel(x,y);
 			vec3f l = *pos - *hitpoint;
 			float distance = length_of_vec3f(&l);
 			normalize_vec3f(&l);
@@ -184,7 +190,7 @@ namespace example {
 				extract_dir_vec3f_of_matrix(&dir, trafo);
 				normalize_vec3f(&dir);
 				float spot_cos_cutoff = cos(cutoff);
-				vec3f *normal = normals+y*w+x;
+				vec3f *normal = &normals.pixel(x,y);
 				return spot_contrib(ref, x, y, &pos, normal, &dir, spot_cos_cutoff, cutoff);
 		}
 
@@ -195,7 +201,7 @@ namespace example {
 				vec3f tmp;
 				for (int y = 0; y < h; ++y)
 					for (int x = 0; x < w; ++x) {
-						vec3f *n = normals+y*w+x;
+						vec3f *n = &normals.pixel(x,y);
 						if (n->x != 0 || n->y != 0 || n->z != 0) {
 							float factor = 0.5*(1+dot_vec3f(n, dir));
 							mul_vec3f_by_scalar(&tmp, light_color(ref), factor);
@@ -214,7 +220,7 @@ namespace example {
 				float spot_cos_cutoff = cos(cutoff);
 				for (int y = 0; y < h; ++y)
 					for (int x = 0; x < w; ++x) {
-						vec3f *normal = normals+y*w+x;
+						vec3f *normal = &normals.pixel(x,y);
 						if (normal->x != 0 || normal->y != 0 || normal->z != 0) {
 							vec3f lighting = spot_contrib(ref, x, y, &pos, normal, &dir, spot_cos_cutoff, cutoff);
 							add_components_vec3f(lighting_buffer+y*w+x, lighting_buffer+y*w+x, &lighting);
@@ -242,37 +248,90 @@ namespace example {
 		}
 	};
 
+
+	/*! A shadowing pass to compute visibility of a set of hitpoints from a point light source.
+	 *  Does not handle sender/receiver geometry, this should be done when shading.
+	 */
+	class shadow_computation_for_pointlight {
+	public:
+		rt_set<simple_aabb, simple_triangle> shadow_set;
+		binary_shadow_collector<simple_aabb, simple_triangle> *shadow_bouncer;
+		pointlight_shadow_ray_generator *plsrg;
+		light_ref ref;
+		shadow_computation_for_pointlight(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, light_ref light) {
+			shadow_set = org_set;
+			shadow_set.rt = org_set.rt->copy();
+			shadow_set.bouncer = shadow_bouncer = new rta::binary_shadow_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
+			shadow_set.rgen = plsrg = new rta::pointlight_shadow_ray_generator(w, h);
+			shadow_set.rt->ray_bouncer(shadow_set.bouncer);
+			shadow_set.rt->force_cpu_bouncer(shadow_bouncer); // why oh why
+			shadow_set.rt->ray_generator(shadow_set.rgen);
+			ref = light;
+		}
+		void trace(const image<vec3f,1> *hitpoints) {
+			cout << "computing shadows for light " << light_name(ref) << "... " << endl;
+			matrix4x4f *trafo = light_trafo(ref);
+			vec3f pos;
+			extract_pos_vec3f_of_matrix(&pos, trafo);
+			plsrg->setup(hitpoints, pos);
+			shadow_set.rt->trace();
+		}
+	};
+
+
+	/*! An extension of the simple_lighting example incorporating hard shadows for spotlights.
+	 *  Hemi lights do not cast shadows.
+	 */
 	class simple_lighting_with_shadows : public simple_lighting {
-		list<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
+		vector<light_ref> point_lights;
+		vector<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
+		rt_set<simple_aabb, simple_triangle> base_shadow_set;
+		vector<shadow_computation_for_pointlight> shadow_passes;
 	public:
 		simple_lighting_with_shadows(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, scene_ref the_scene) 
 		: simple_lighting(org_set, w, h, the_scene) {
+			base_shadow_set = org_set;
+			base_shadow_set.rt = org_set.rt->copy();
+			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next) {
+				int type = light_type(ll->ref);
+				if (type == spot_light_t) {
+					point_lights.push_back(ll->ref);
+					lighting_buffer.push_back(new vec3f[w*h]);
+					shadow_passes.push_back(shadow_computation_for_pointlight(base_shadow_set, w, h, ll->ref));
+				}
+				else
+					lights.push_back(ll->ref);
+			}
 		}
 		
-		void adjust_lighting_buffers() {
-			while (lights.size() < lighting_buffer.size()) {
-				delete [] lighting_buffer.back();
-				lighting_buffer.pop_back();
-			}
-			while (lights.size() > lighting_buffer.size())
-				lighting_buffer.push_back(new vec3f[w*h]);
-		}
-
 		void fill_lighting_buffers() {
-			auto buffer_iter = lighting_buffer.begin();
-			for (auto light_iter = lights.begin(); light_iter != lights.end(); ++light_iter, ++buffer_iter) {
-				add_lighting(*light_iter, *buffer_iter);
+			// accumulate light of unsupported light types in the general lighting buffer.
+			for (auto light_iter = lights.begin(); light_iter != lights.end(); ++light_iter) {
+				add_lighting(*light_iter, simple_lighting::lighting_buffer);
+			}
+			for (int i = 0; i < shadow_passes.size(); ++i) {
+				shadow_passes[i].trace(&hitpoints);
+				add_lighting(point_lights[i], lighting_buffer[i]);
+				for (int y = 0; y < h; ++y)
+					for (int x = 0; x < w; ++x) {
+						vec3f *normal = &normals.pixel(x,y);
+						if (normal->x != 0 || normal->y != 0 || normal->z != 0) {
+							mul_vec3f_by_scalar(lighting_buffer[i]+y*w+x, lighting_buffer[i]+y*w+x, shadow_passes[i].shadow_bouncer->factor(x, y));
+							add_components_vec3f(simple_lighting::lighting_buffer+y*w+x, simple_lighting::lighting_buffer+y*w+x, lighting_buffer[i]+y*w+x);
+						}
+					}
 			}
 		}
 
 		virtual void compute() {
 			primary_visibility();
 			evaluate_material();
-			find_lights();
-			adjust_lighting_buffers();
+			clear_lighting_buffer(simple_lighting::lighting_buffer);
 			for (auto buf : lighting_buffer)
 				clear_lighting_buffer(buf);
 			fill_lighting_buffers();
+			shade(simple_lighting::lighting_buffer, simple_lighting::lighting_buffer);
+			save(simple_lighting::lighting_buffer);
 		}
 	};
 }
