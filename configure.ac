@@ -5,7 +5,7 @@ AC_INIT([libhyb], [0.0.1])
 AM_INIT_AUTOMAKE
 
 # name one of your source files here
-AC_CONFIG_SRCDIR([src/main.cpp])
+AC_CONFIG_SRCDIR([src/rta-cgls-connection.cpp])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES(Makefile src/Makefile doc/Makefile doc/doxyfile doc/doxygen_mainpage.h)
 
