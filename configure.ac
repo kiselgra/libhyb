@@ -35,8 +35,10 @@ CXXFLAGS="$CXXFLAGS $ac_cv_cxx_cxx11_spec"
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-AC_CHECK_LIB([cgl], [main])
-PKG_CHECK_MODULES(CGLS, libcgls)
+#AC_CHECK_LIB([cgl], [main])
+#AC_CHECK_LIB([png], [main])
+
+PKG_CHECK_MODULES(CGLS, libcgl libcgls)
 AC_SUBST(CGLS_CFLAGS)
 AC_SUBST(CGLS_LDFLAGS)
 

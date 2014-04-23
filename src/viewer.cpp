@@ -1,3 +1,5 @@
+#include <libpng/png.h>
+
 #include <libcgls/cgls.h>
 #include <libcgls/picking.h>
 #include <libcgls/interaction.h>
