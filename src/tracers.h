@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <libcgl/cgl.h>
 #include <librta/material.h>
+#include <librta/cuda.h>
 #include <png++/png.hpp>
 
 #include "rta-cgls-connection.h"
@@ -25,29 +26,43 @@ namespace example {
 		virtual void compute() = 0;
 	};
 
-
 	/*! A very simple example that traces primary rays and evaluates the material at the hitpoints.
 	 *  No shading is applied.
 	 */
-	class simple_material : public use_case {
+	template<typename box_t, typename tri_t> class simple_material : public use_case {
 	protected:
 		rt_set set;
+		typedef typename tri_t::vec3_t vec3_t;
+		typedef typename rta::vector_traits<vec3_t>::vec2_t vec2_t;
 		int w, h;
 		image<vec3f, 1> hitpoints, normals;
 		vec3f *material;
 		cam_ray_generator_shirley *crgs;
-		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
+		rta::primary_intersection_collector<box_t, tri_t> *primary;
+
+		rta::primary_intersection_collector<box_t, tri_t>* make_primary_intersection_collector(rta::simple_triangle t, int w, int h) {
+			return new rta::primary_intersection_collector<box_t, tri_t>(w, h);
+		}
+		rta::primary_intersection_collector<box_t, tri_t>* make_primary_intersection_collector(rta::cuda::simple_triangle t, int w, int h) {
+			return new rta::cuda::primary_intersection_downloader<box_t, tri_t>(w, h);
+		}
+		rta::cam_ray_generator_shirley* make_crgs(rta::simple_triangle t, int w, int h) {
+			return new rta::cam_ray_generator_shirley(w, h);
+		}
+		rta::cam_ray_generator_shirley* make_crgs(rta::cuda::simple_triangle t, int w, int h) {
+			return new rta::cuda::raygen_with_buffer<rta::cam_ray_generator_shirley>(w, h);
+		}
+
 	public:
 		simple_material(rt_set &org_set, int w, int h) 
-		: w(w), h(h), material(0), crgs(0), cpu_bouncer(0), hitpoints(w,h), normals(w,h) {
+		: w(w), h(h), material(0), crgs(0), primary(0), hitpoints(w,h), normals(w,h) {
 			material = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
-			set.bouncer = cpu_bouncer = new rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
-			set.rgen = crgs = new rta::cam_ray_generator_shirley(w, h);
-			set.basic_rt<simple_aabb, simple_triangle>()->ray_bouncer(set.bouncer);
-// 			set.basic_rt<simple_aabb, simple_triangle>()->force_cpu_bouncer(cpu_bouncer); // why oh why	// TODO!
-			set.basic_rt<simple_aabb, simple_triangle>()->ray_generator(set.rgen);
+			set.bouncer = primary = make_primary_intersection_collector(tri_t(), w, h);
+			set.rgen = crgs = make_crgs(tri_t(), w, h);
+			set.basic_rt<box_t, tri_t>()->ray_bouncer(set.bouncer);
+			set.basic_rt<box_t, tri_t>()->ray_generator(set.rgen);
 		}
 
 		virtual void primary_visibility() {
@@ -60,21 +75,23 @@ namespace example {
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
 
-			vec3f bc;
+			vec3_t bc, tmp;
 			for (int y = 0; y < h; ++y)
 				for (int x = 0; x < w; ++x) {
-					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
+					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						simple_triangle &tri = set.basic_as<simple_aabb, simple_triangle>()->triangle_ptr()[ti.ref];
+						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
 						ti.barycentric_coord(&bc);
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
 						const vec3_t &vc = vertex_c(tri);
-						barycentric_interpolation(&hitpoints.pixel(x,y), &bc, &va, &vb, &vc);
+						barycentric_interpolation(&tmp, &bc, &va, &vb, &vc);
+						hitpoints.pixel(x,y) = { tmp.x, tmp.y, tmp.z };
 						const vec3_t &na = normal_a(tri);
 						const vec3_t &nb = normal_b(tri);
 						const vec3_t &nc = normal_c(tri);
-						barycentric_interpolation(&normals.pixel(x,y), &bc, &na, &nb, &nc);
+						barycentric_interpolation(&tmp, &bc, &na, &nb, &nc);
+						normals.pixel(x,y) = { tmp.x, tmp.y, tmp.z };
 					}
 					else {
 						make_vec3f(&hitpoints.pixel(x,y), FLT_MAX, FLT_MAX, FLT_MAX);
@@ -88,9 +105,9 @@ namespace example {
 			for (int y = 0; y < h; ++y) {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
-					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
+					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						simple_triangle &tri = set.basic_as<simple_aabb, simple_triangle>()->triangle_ptr()[ti.ref];
+						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
 						material_t *mat = rta::material(tri.material_index);
 						vec3f col = (*mat)();
 						if (mat->diffuse_texture) {
@@ -101,7 +118,8 @@ namespace example {
 							const vec2_t &tc = texcoord_c(tri);
 							vec2_t T;
 							barycentric_interpolation(&T, &bc, &ta, &tb, &tc);
-							col = (*mat)(T);
+							vec2f t = { T.x, T.y };
+							col = (*mat)(t);
 						}
 						material[y*w+x] = col;
 					}
@@ -135,7 +153,7 @@ namespace example {
 	/*! An extention of the simple_material example that adds lighting by spotlights and hemispherical lights.
 	 *  Does not compute shadows.
 	 */
-	class simple_lighting : public simple_material {
+	class simple_lighting : public simple_material<rta::simple_aabb, rta::simple_triangle> {
 	protected:
 		list<light_ref> lights;
 		vec3f *lighting_buffer;

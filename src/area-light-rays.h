@@ -27,6 +27,7 @@ namespace rta {
 		rectangular_light_ray_generator(unsigned int samples, const vec3_t &center, float w, float h);
 		virtual void generate_rays();
 		virtual std::string identification();
+		virtual void dont_forget_to_initialize_max_t() {}
 	};
 
 }

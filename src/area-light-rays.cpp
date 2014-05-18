@@ -19,6 +19,7 @@ namespace rta {
 			z = uniform_random_11();
 			vec3_t dir = pbrt::CosineSampleHemisphere(x, z);
 			*direction(i,0) = { dir.x, -dir.z, dir.y };
+			max_t(x,0) = FLT_MAX;
 		}
 	}
 
