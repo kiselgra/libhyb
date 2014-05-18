@@ -153,15 +153,21 @@ namespace example {
 	/*! An extention of the simple_material example that adds lighting by spotlights and hemispherical lights.
 	 *  Does not compute shadows.
 	 */
-	class simple_lighting : public simple_material<rta::simple_aabb, rta::simple_triangle> {
+	template<typename box_t, typename tri_t> class simple_lighting : public simple_material<box_t, tri_t> {
 	protected:
 		list<light_ref> lights;
 		vec3f *lighting_buffer;
 		scene_ref the_scene;
+		typedef simple_material<box_t, tri_t> parent;
+		using parent::w;
+		using parent::h;
+		using parent::hitpoints;
+		using parent::normals;
+		using parent::material;
 
 	public:
 		simple_lighting(rt_set &org_set, int w, int h, scene_ref the_scene) 
-		: simple_material(org_set, w, h), lighting_buffer(0), the_scene(the_scene) {
+		: simple_material<box_t, tri_t>(org_set, w, h), lighting_buffer(0), the_scene(the_scene) {
 			lighting_buffer = new vec3f[w*h];
 		}
 
@@ -256,13 +262,13 @@ namespace example {
 		}
 
 		virtual void compute() {
-			primary_visibility();
-			evaluate_material();
+			this->primary_visibility();
+			this->evaluate_material();
 			find_lights();
 			clear_lighting_buffer(lighting_buffer);
 			add_lighting(lighting_buffer);
 			shade(lighting_buffer, lighting_buffer);
-			save(lighting_buffer);
+			this->save(lighting_buffer);
 		}
 	};
 
@@ -300,7 +306,7 @@ namespace example {
 	/*! An extension of the simple_lighting example incorporating hard shadows for spotlights.
 	 *  Hemi lights do not cast shadows.
 	 */
-	class simple_lighting_with_shadows : public simple_lighting {
+	class simple_lighting_with_shadows : public simple_lighting<rta::simple_aabb, rta::simple_triangle> {
 		vector<light_ref> point_lights;
 		vector<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
 		rt_set base_shadow_set;
