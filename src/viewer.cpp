@@ -76,18 +76,29 @@ void advance_anim(interaction_mode *m, int x, int y) {
 static rta::cgls::connection *rta_connection = 0;
 static example::use_case *use_case = 0;
 
-void setup_rta(const std::string &plugin) {
+void setup_rta(std::string plugin) {
+	bool use_cuda = true;
+	if (plugin == "default/choice")
+		if (use_cuda)
+			plugin = "bbvh-cuda";
+		else
+			plugin = "bbvh";
+
 	rta_connection = new rta::cgls::connection(plugin);
 	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
 	int rays_w = cmdline.res.x, rays_h = cmdline.res.y;
 	rta::rt_set set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
 
-// 	use_case = new example::simple_material<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h);
-// 	use_case = new example::simple_material<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h);
-// 	use_case = new example::simple_lighting<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
-// 	use_case = new example::simple_lighting<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
-// 	use_case = new example::simple_lighting_with_shadows<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
-	use_case = new example::simple_lighting_with_shadows<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
+	if (!use_cuda) {
+// 		use_case = new example::simple_material<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h);
+// 		use_case = new example::simple_lighting<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
+		use_case = new example::simple_lighting_with_shadows<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
+	}
+	else {
+// 		use_case = new example::simple_material<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h);
+// 		use_case = new example::simple_lighting<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
+		use_case = new example::simple_lighting_with_shadows<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
+	}
 
 // 	cpu_bouncer->ray_gen(set.rgen);
 // 	cpu_bouncer->triangle_ptr(set.as->triangle_ptr());
