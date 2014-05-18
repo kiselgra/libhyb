@@ -31,23 +31,23 @@ namespace example {
 	 */
 	class simple_material : public use_case {
 	protected:
-		rt_set<simple_aabb, simple_triangle> set;
+		rt_set set;
 		int w, h;
 		image<vec3f, 1> hitpoints, normals;
 		vec3f *material;
 		cam_ray_generator_shirley *crgs;
 		rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle> *cpu_bouncer;
 	public:
-		simple_material(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h) 
+		simple_material(rt_set &org_set, int w, int h) 
 		: w(w), h(h), material(0), crgs(0), cpu_bouncer(0), hitpoints(w,h), normals(w,h) {
 			material = new vec3f[w*h];
 			set = org_set;
 			set.rt = org_set.rt->copy();
 			set.bouncer = cpu_bouncer = new rta::primary_intersection_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
 			set.rgen = crgs = new rta::cam_ray_generator_shirley(w, h);
-			set.rt->ray_bouncer(set.bouncer);
-			set.rt->force_cpu_bouncer(cpu_bouncer); // why oh why
-			set.rt->ray_generator(set.rgen);
+			set.basic_rt<simple_aabb, simple_triangle>()->ray_bouncer(set.bouncer);
+// 			set.basic_rt<simple_aabb, simple_triangle>()->force_cpu_bouncer(cpu_bouncer); // why oh why	// TODO!
+			set.basic_rt<simple_aabb, simple_triangle>()->ray_generator(set.rgen);
 		}
 
 		virtual void primary_visibility() {
@@ -65,7 +65,7 @@ namespace example {
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
 					if (ti.valid()) {
-						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
+						simple_triangle &tri = set.basic_as<simple_aabb, simple_triangle>()->triangle_ptr()[ti.ref];
 						ti.barycentric_coord(&bc);
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
@@ -90,7 +90,7 @@ namespace example {
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<simple_triangle> &ti = cpu_bouncer->intersection(x,y);
 					if (ti.valid()) {
-						simple_triangle &tri = set.as->triangle_ptr()[ti.ref];
+						simple_triangle &tri = set.basic_as<simple_aabb, simple_triangle>()->triangle_ptr()[ti.ref];
 						material_t *mat = rta::material(tri.material_index);
 						vec3f col = (*mat)();
 						if (mat->diffuse_texture) {
@@ -142,7 +142,7 @@ namespace example {
 		scene_ref the_scene;
 
 	public:
-		simple_lighting(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, scene_ref the_scene) 
+		simple_lighting(rt_set &org_set, int w, int h, scene_ref the_scene) 
 		: simple_material(org_set, w, h), lighting_buffer(0), the_scene(the_scene) {
 			lighting_buffer = new vec3f[w*h];
 		}
@@ -254,18 +254,18 @@ namespace example {
 	 */
 	class shadow_computation_for_pointlight {
 	public:
-		rt_set<simple_aabb, simple_triangle> shadow_set;
+		rt_set shadow_set;
 		binary_shadow_collector<simple_aabb, simple_triangle> *shadow_bouncer;
 		pointlight_shadow_ray_generator *plsrg;
 		light_ref ref;
-		shadow_computation_for_pointlight(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, light_ref light) {
+		shadow_computation_for_pointlight(rt_set &org_set, int w, int h, light_ref light) {
 			shadow_set = org_set;
 			shadow_set.rt = org_set.rt->copy();
 			shadow_set.bouncer = shadow_bouncer = new rta::binary_shadow_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
 			shadow_set.rgen = plsrg = new rta::pointlight_shadow_ray_generator(w, h);
-			shadow_set.rt->ray_bouncer(shadow_set.bouncer);
-			shadow_set.rt->force_cpu_bouncer(shadow_bouncer); // why oh why
-			shadow_set.rt->ray_generator(shadow_set.rgen);
+			shadow_set.basic_rt<simple_aabb, simple_triangle>()->ray_bouncer(shadow_set.bouncer);
+// 			shadow_set.basic_rt<simple_aabb, simple_triangle>()->force_cpu_bouncer(shadow_bouncer); // why oh why
+			shadow_set.basic_rt<simple_aabb, simple_triangle>()->ray_generator(shadow_set.rgen);
 			ref = light;
 		}
 		void trace(const image<vec3f,1> *hitpoints) {
@@ -285,10 +285,10 @@ namespace example {
 	class simple_lighting_with_shadows : public simple_lighting {
 		vector<light_ref> point_lights;
 		vector<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
-		rt_set<simple_aabb, simple_triangle> base_shadow_set;
+		rt_set base_shadow_set;
 		vector<shadow_computation_for_pointlight> shadow_passes;
 	public:
-		simple_lighting_with_shadows(rt_set<simple_aabb, simple_triangle> &org_set, int w, int h, scene_ref the_scene) 
+		simple_lighting_with_shadows(rt_set &org_set, int w, int h, scene_ref the_scene) 
 		: simple_lighting(org_set, w, h, the_scene) {
 			base_shadow_set = org_set;
 			base_shadow_set.rt = org_set.rt->copy();

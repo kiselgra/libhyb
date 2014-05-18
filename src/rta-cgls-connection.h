@@ -42,7 +42,7 @@ namespace rta {
 			struct conversion_state {
 				scene_ref scene;
 				int triangles, offset;
-				rta::flat_triangle_list *ftl;
+				rta::basic_flat_triangle_list<rta::simple_triangle> *ftl;
 				conversion_state() : triangles(0), offset(0), ftl(0) { scene.id = -1; }
 				std::unordered_map<int, int> material_map;
 			};
@@ -63,7 +63,7 @@ namespace rta {
 					: rta::connection(plugin_name) {
 			}
 
-			static rta::flat_triangle_list* convert_scene_to_ftl(scene_ref scene);
+			static rta::basic_flat_triangle_list<rta::simple_triangle>* convert_scene_to_ftl(scene_ref scene);
 		};
 
 	}

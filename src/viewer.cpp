@@ -76,9 +76,9 @@ static example::use_case *use_case = 0;
 
 void setup_rta(const std::string &plugin) {
 	rta_connection = new rta::cgls::connection(plugin);
-	static rta::flat_triangle_list *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
+	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
 	int rays_w = cmdline.res.x, rays_h = cmdline.res.y;
-	rta::rt_set<rta::simple_aabb, rta::simple_triangle> set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
+	rta::rt_set set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
 
 // 	use_case = new example::simple_material(set, rays_w, rays_h);
 // 	use_case = new example::simple_lighting(set, rays_w, rays_h, the_scene);

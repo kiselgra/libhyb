@@ -113,13 +113,13 @@ namespace rta {
 			}
 		}
 			
-		rta::flat_triangle_list* connection::convert_scene_to_ftl(scene_ref scene) {
+		rta::basic_flat_triangle_list<rta::simple_triangle>* connection::convert_scene_to_ftl(scene_ref scene) {
 			conversion_state state;
 			state.scene = scene;
 
 			apply_to_scene(count_ftl_entries, state);
 			apply_to_scene(convert_materials, state);
-			state.ftl = new flat_triangle_list(state.triangles);
+			state.ftl = new basic_flat_triangle_list<rta::simple_triangle>(state.triangles);
 			apply_to_scene(insert_tris, state);
 
 			return state.ftl;
