@@ -44,7 +44,7 @@ namespace example {
 			return new rta::primary_intersection_collector<box_t, tri_t>(w, h);
 		}
 		rta::primary_intersection_collector<box_t, tri_t>* make_primary_intersection_collector(rta::cuda::simple_triangle t, int w, int h) {
-			return new rta::cuda::primary_intersection_downloader<box_t, tri_t>(w, h);
+			return new rta::cuda::primary_intersection_downloader<box_t, tri_t, primary_intersection_collector<box_t, tri_t>>(w, h);
 		}
 		rta::cam_ray_generator_shirley* make_crgs(rta::simple_triangle t, int w, int h) {
 			return new rta::cam_ray_generator_shirley(w, h);
@@ -276,20 +276,33 @@ namespace example {
 	/*! A shadowing pass to compute visibility of a set of hitpoints from a point light source.
 	 *  Does not handle sender/receiver geometry, this should be done when shading.
 	 */
-	class shadow_computation_for_pointlight {
+	template<typename box_t, typename tri_t> class shadow_computation_for_pointlight {
 	public:
 		rt_set shadow_set;
-		binary_shadow_collector<simple_aabb, simple_triangle> *shadow_bouncer;
+		binary_shadow_collector<box_t, tri_t> *shadow_bouncer;
 		pointlight_shadow_ray_generator *plsrg;
 		light_ref ref;
+
+		binary_shadow_collector<box_t, tri_t>* make_shadow_collector(rta::simple_triangle, int w, int h) {
+			return new rta::binary_shadow_collector<box_t, tri_t>(w, h);
+		}
+		binary_shadow_collector<box_t, tri_t>* make_shadow_collector(rta::cuda::simple_triangle, int w, int h) {
+			return new rta::cuda::hackish_binary_shadow_collector<box_t, tri_t>(w, h);
+		}
+		pointlight_shadow_ray_generator* make_plrg(rta::simple_triangle, int w, int h) {
+			return new rta::pointlight_shadow_ray_generator(w, h);
+		}
+		pointlight_shadow_ray_generator* make_plrg(rta::cuda::simple_triangle, int w, int h) {
+			return new rta::cuda::raygen_with_buffer<rta::pointlight_shadow_ray_generator>(w, h);
+		}
+
 		shadow_computation_for_pointlight(rt_set &org_set, int w, int h, light_ref light) {
 			shadow_set = org_set;
 			shadow_set.rt = org_set.rt->copy();
-			shadow_set.bouncer = shadow_bouncer = new rta::binary_shadow_collector<rta::simple_aabb, rta::simple_triangle>(w, h);
-			shadow_set.rgen = plsrg = new rta::pointlight_shadow_ray_generator(w, h);
-			shadow_set.basic_rt<simple_aabb, simple_triangle>()->ray_bouncer(shadow_set.bouncer);
-// 			shadow_set.basic_rt<simple_aabb, simple_triangle>()->force_cpu_bouncer(shadow_bouncer); // why oh why
-			shadow_set.basic_rt<simple_aabb, simple_triangle>()->ray_generator(shadow_set.rgen);
+			shadow_set.bouncer = shadow_bouncer = make_shadow_collector(tri_t(), w, h);
+			shadow_set.rgen = plsrg = make_plrg(tri_t(), w, h);
+			shadow_set.basic_rt<box_t, tri_t>()->ray_bouncer(shadow_set.bouncer);
+			shadow_set.basic_rt<box_t, tri_t>()->ray_generator(shadow_set.rgen);
 			ref = light;
 		}
 		void trace(const image<vec3f,1> *hitpoints) {
@@ -306,14 +319,23 @@ namespace example {
 	/*! An extension of the simple_lighting example incorporating hard shadows for spotlights.
 	 *  Hemi lights do not cast shadows.
 	 */
-	class simple_lighting_with_shadows : public simple_lighting<rta::simple_aabb, rta::simple_triangle> {
+	template<typename box_t, typename tri_t> class simple_lighting_with_shadows : public simple_lighting<box_t, tri_t> {
+	protected:
+		typedef simple_lighting<box_t, tri_t> parent;
+		using parent::w;
+		using parent::h;
+		using parent::hitpoints;
+		using parent::normals;
+		using parent::material;
+		using parent::lights;
+
 		vector<light_ref> point_lights;
 		vector<vec3f*> lighting_buffer; // we use the same name to avoid accidental use of simple_lighting::lighting_buffer.
 		rt_set base_shadow_set;
-		vector<shadow_computation_for_pointlight> shadow_passes;
+		vector<shadow_computation_for_pointlight<box_t, tri_t> > shadow_passes;
 	public:
 		simple_lighting_with_shadows(rt_set &org_set, int w, int h, scene_ref the_scene) 
-		: simple_lighting(org_set, w, h, the_scene) {
+		: simple_lighting<box_t, tri_t>(org_set, w, h, the_scene) {
 			base_shadow_set = org_set;
 			base_shadow_set.rt = org_set.rt->copy();
 			for (light_list *ll = scene_lights(the_scene); ll; ll = ll->next) {
@@ -321,7 +343,7 @@ namespace example {
 				if (type == spot_light_t) {
 					point_lights.push_back(ll->ref);
 					lighting_buffer.push_back(new vec3f[w*h]);
-					shadow_passes.push_back(shadow_computation_for_pointlight(base_shadow_set, w, h, ll->ref));
+					shadow_passes.push_back(shadow_computation_for_pointlight<box_t, tri_t> (base_shadow_set, w, h, ll->ref));
 				}
 				else
 					lights.push_back(ll->ref);
@@ -331,31 +353,31 @@ namespace example {
 		void fill_lighting_buffers() {
 			// accumulate light of unsupported light types in the general lighting buffer.
 			for (auto light_iter = lights.begin(); light_iter != lights.end(); ++light_iter) {
-				add_lighting(*light_iter, simple_lighting::lighting_buffer);
+				this->add_lighting(*light_iter, parent::lighting_buffer);
 			}
 			for (int i = 0; i < shadow_passes.size(); ++i) {
 				shadow_passes[i].trace(&hitpoints);
-				add_lighting(point_lights[i], lighting_buffer[i]);
+				this->add_lighting(point_lights[i], lighting_buffer[i]);
 				for (int y = 0; y < h; ++y)
 					for (int x = 0; x < w; ++x) {
 						vec3f *normal = &normals.pixel(x,y);
 						if (normal->x != 0 || normal->y != 0 || normal->z != 0) {
 							mul_vec3f_by_scalar(lighting_buffer[i]+y*w+x, lighting_buffer[i]+y*w+x, shadow_passes[i].shadow_bouncer->factor(x, y));
-							add_components_vec3f(simple_lighting::lighting_buffer+y*w+x, simple_lighting::lighting_buffer+y*w+x, lighting_buffer[i]+y*w+x);
+							add_components_vec3f(parent::lighting_buffer+y*w+x, parent::lighting_buffer+y*w+x, lighting_buffer[i]+y*w+x);
 						}
 					}
 			}
 		}
 
 		virtual void compute() {
-			primary_visibility();
-			evaluate_material();
-			clear_lighting_buffer(simple_lighting::lighting_buffer);
+			this->primary_visibility();
+			this->evaluate_material();
+			clear_lighting_buffer(parent::lighting_buffer);
 			for (auto buf : lighting_buffer)
 				clear_lighting_buffer(buf);
 			fill_lighting_buffers();
-			shade(simple_lighting::lighting_buffer, simple_lighting::lighting_buffer);
-			save(simple_lighting::lighting_buffer);
+				shade(parent::lighting_buffer, parent::lighting_buffer);
+			save(parent::lighting_buffer);
 		}
 	};
 }

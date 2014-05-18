@@ -3,6 +3,8 @@
 
 #include "rta-cgls-connection.h"
 
+#include <librta/cuda.h>
+
 namespace rta {
 
 	template<typename box_t, typename tri_t> class binary_shadow_collector : public cpu_ray_bouncer<box_t, tri_t> {
@@ -28,6 +30,24 @@ namespace rta {
 		}
 		float factor(int x, int y) { return attenuation.pixel(x, y, 0); }
 	};
+	
+	namespace cuda {
+		template<typename box_t, typename tri_t> 
+		class hackish_binary_shadow_collector : public primary_intersection_downloader<box_t, tri_t, binary_shadow_collector<box_t, tri_t> > {
+			int w, h;
+		public:
+			hackish_binary_shadow_collector(int w, int h) 
+			: primary_intersection_downloader<box_t, tri_t, binary_shadow_collector<box_t, tri_t> >(w, h), w(w), h(h) {
+			}
+// 			virtual void bounce() {
+// 				primary_intersection_downloader<box_t, tri_t>::bounce();
+// 				binary_shadow_collector<box_t, tri_t>::bounce();
+// 			}
+			virtual std::string identification() {
+				return "cuda host-based version of binary shadow collector. (the bouncing shoud *actually* be done on the gpu).";
+			}
+		};
+	}
 
 	/*! \brief Ray generator for point lights (that includes spotlights).
 	 *

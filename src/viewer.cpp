@@ -85,8 +85,9 @@ void setup_rta(const std::string &plugin) {
 // 	use_case = new example::simple_material<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h);
 // 	use_case = new example::simple_material<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h);
 // 	use_case = new example::simple_lighting<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
-	use_case = new example::simple_lighting<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
-// 	use_case = new example::simple_lighting_with_shadows(set, rays_w, rays_h, the_scene);
+// 	use_case = new example::simple_lighting<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
+// 	use_case = new example::simple_lighting_with_shadows<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
+	use_case = new example::simple_lighting_with_shadows<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
 
 // 	cpu_bouncer->ray_gen(set.rgen);
 // 	cpu_bouncer->triangle_ptr(set.as->triangle_ptr());
