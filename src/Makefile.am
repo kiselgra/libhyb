@@ -33,7 +33,7 @@ libhyb_la_LIBADD = $(RTA_LIBS) $(CGLS_LIBS)
 if CAN_USE_GUILE
 bin_PROGRAMS = viewer-cgls-rta
 BUILT_SOURCES = cmdline.x
-viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h $(libhyb_la_SOURCES)
+viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h tracers.h $(libhyb_la_SOURCES)
 viewer_cgls_rta_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D CGL_GL_VERSION=GL4 -D DATADIR=\"$(cglsdata)\" $(RTA_CFLAGS) $(CGLS_CFLAGS) -DWITH_GUILE $(GUILE_CFLAGS)
 viewer_cgls_rta_CXXFLAGS = -fopenmp
 viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS)
@@ -45,3 +45,11 @@ snarf_opts = @GUILE_DEF@ $(AM_CPPFLAGS) $(CPPFLAGS) $(viewer_cgls_rta_CPPFLAGS)
 .cpp.x:
 	guile-snarf $< $(snarf_opts) > $@
 endif
+
+# install link
+library_nonversioned_includedir = $(includedir)/$(PACKAGE)
+install-data-hook:
+	@test -L $(library_nonversioned_includedir) && echo "   !!!   The nonversioned library include dir <$(library_nonversioned_includedir)> is already covered by a link. You'll have to update yourself". || true
+	test -L $(library_nonversioned_includedir) || ln -s $(library_includedir) $(library_nonversioned_includedir)
+
+
