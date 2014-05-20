@@ -1,4 +1,4 @@
-// #include <libpng/png.h>
+#include <png.h>
 
 #include <libcgls/cgls.h>
 #include <libcgls/picking.h>

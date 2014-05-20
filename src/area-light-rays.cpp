@@ -1,3 +1,4 @@
+#include <png.h>
 #include "area-light-rays.h"
 
 using namespace std;

@@ -372,12 +372,12 @@ namespace example {
 		virtual void compute() {
 			this->primary_visibility();
 			this->evaluate_material();
-			clear_lighting_buffer(parent::lighting_buffer);
+			this->clear_lighting_buffer(parent::lighting_buffer);
 			for (auto buf : lighting_buffer)
-				clear_lighting_buffer(buf);
+				this->clear_lighting_buffer(buf);
 			fill_lighting_buffers();
-				shade(parent::lighting_buffer, parent::lighting_buffer);
-			save(parent::lighting_buffer);
+			this->shade(parent::lighting_buffer, parent::lighting_buffer);
+			this->save(parent::lighting_buffer);
 		}
 	};
 }
