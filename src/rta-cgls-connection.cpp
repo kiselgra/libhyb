@@ -1,7 +1,17 @@
 #include "rta-cgls-connection.h"
 #include <librta/material.h>
+#include <librta/cuda.h>
+#include <librta/cuda-kernels.h>
+
+#include <cuda_gl_interop.h>
+
+#include <map>
 
 using namespace std;
+
+bool operator<(const mesh_ref &a, const mesh_ref &b) {
+	return a.id < b.id;
+}
 
 namespace rta {
 
@@ -125,7 +135,122 @@ namespace rta {
 			return state.ftl;
 		}
 
+			
+		connection::cuda_triangle_data* connection::convert_scene_to_cuda_triangle_data(scene_ref scene) {
+			cuda_triangle_data *data = new cuda_triangle_data;
+			data->work_group_size = 512;
+			data->work_group_iterations = 2;
+			int batch_size = data->work_group_size * data->work_group_iterations;
 
+			// convert materials first, so we can refer to them when building the cuda triangle base representation
+			conversion_state state;
+			state.scene = scene;
+			apply_to_scene(convert_materials, state);
+
+			// sort drawelements by mesh (i.e. by gl buffers), acumulate triangle count
+			for (drawelement_node *run = scene_drawelements(scene); run; run = run->next)
+				if (drawelement_using_index_range(run->ref) && drawelement_index_range_len(run->ref) > 0) {
+					cuda_triangle_data::drawelement_conversion conv(run->ref);
+					conv.material_id = state.material_map[drawelement_material(run->ref).id];
+					conv.offset      = drawelement_index_range_start(run->ref);
+					conv.length      = drawelement_index_range_len(run->ref);
+					conv.work_groups = conv.length / batch_size;
+					if (conv.length % batch_size != 0)
+						conv.work_groups++;
+					cuda_triangle_data::group_data &group = data->drawelement_by_mesh[drawelement_mesh(run->ref)];
+					group.elements.push_back(conv);
+					group.triangles += conv.length;
+					group.work_groups += conv.work_groups;
+				}
+				else
+					cerr << "cannot handle drawelement " << drawelement_name(run->ref) << "! ! !" << endl;
+
+			// compute global group triangle data offset and allocate gpu storage
+			int offset = 0;
+			for (auto it : data->drawelement_by_mesh) {
+				it.second.offset = offset;
+				offset += it.second.triangles;
+			}
+			data->ftl.triangles = offset;
+			cudaMalloc((void**)&data->ftl.triangle, sizeof(cuda::simple_triangle) * data->ftl.triangles);
+
+			// fill in work group data, i.e. offset to mesh-local data, work group's triangle, and current batch's material id.
+			// this is per mesh, as we have to rebind the gl buffers for the copy process
+			for (auto it : data->drawelement_by_mesh) {
+				cuda_triangle_data::group_data &group = it.second;
+				int3 *host_data = new int3[group.work_groups];
+				checked_cuda(cudaMalloc((void**)&group.work_group_data, sizeof(int3) * group.work_groups));
+				int batch = 0;
+				int offset = 0;
+				for (int i = 0; i < group.elements.size(); ++i) {
+					cuda_triangle_data::drawelement_conversion &element = group.elements[i];
+					for (int g = 0; g < element.work_groups; ++g) {
+						host_data[batch].x = offset + g*batch_size;
+						if (g == element.work_groups-1)
+							host_data[batch].y = element.length % batch_size;
+						else
+							host_data[batch].y = batch_size;
+						host_data[batch].z = element.material_id;
+						offset += host_data[batch].y;
+						++batch;
+					}
+				}
+				// start memcpy immediately, the update remaining data fields
+				checked_cuda(cudaMemcpy(group.work_group_data, host_data, sizeof(int3)*group.work_groups, cudaMemcpyHostToDevice));
+				if (vertex_buffers_in_mesh(it.first) == 3)
+					group.has_tex_coords = true;
+				else
+					group.has_tex_coords = false;
+				group.vbo_v.register_buffer(mesh_vertex_buffer(it.first, 0));
+				group.vbo_n.register_buffer(mesh_vertex_buffer(it.first, 1));
+				if (group.has_tex_coords)
+					group.vbo_t.register_buffer(mesh_vertex_buffer(it.first, 2));
+				group.vbo_i.register_buffer(mesh_index_buffer(it.first));
+				// still, we have to wait for the memcpy before we free
+				checked_cuda(cudaDeviceSynchronize());
+				delete [] host_data;
+			}
+
+			data->update();
+		}
+
+		void connection::cuda_triangle_data::update() {
+			drawelement_ref inv = { -1 };
+			update(inv);
+		}
+		
+		void connection::cuda_triangle_data::update(drawelement_ref ref) {
+		}
+	
+	
+		connection::cuda_mapped_gl_buffer::cuda_mapped_gl_buffer(int gl_buffer) : gl_buffer(gl_buffer), mapped(false) {
+			if (gl_buffer)
+				register_buffer(gl_buffer);
+		}
+		connection::cuda_mapped_gl_buffer::~cuda_mapped_gl_buffer() {
+			if (mapped)
+				unmap();
+		}
+		void connection::cuda_mapped_gl_buffer::register_buffer(int gl_buffer) {
+			struct cudaGraphicsResource *vbo_res;
+			checked_cuda(cudaGraphicsGLRegisterBuffer(&vbo_res, gl_buffer, cudaGraphicsRegisterFlagsReadOnly));
+			graphic_resource = vbo_res;
+		}
+		void connection::cuda_mapped_gl_buffer::map() {
+			cudaGraphicsResource *vbo_res = (cudaGraphicsResource*)graphic_resource;
+			void *dptr;
+			checked_cuda(cudaGraphicsMapResources(1, &vbo_res, 0));
+			checked_cuda(cudaGraphicsResourceGetMappedPointer(&device_ptr, &size, vbo_res));
+			mapped = true;
+		}
+		void connection::cuda_mapped_gl_buffer::unmap() {
+			cudaGraphicsResource *vbo_res = (cudaGraphicsResource*)graphic_resource;
+			checked_cuda(cudaGraphicsUnmapResources(1, &vbo_res, 0));
+			mapped = false;
+		}
+
+	
+	
 	}
 }
 
