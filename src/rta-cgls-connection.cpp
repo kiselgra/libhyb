@@ -218,8 +218,30 @@ namespace rta {
 			drawelement_ref inv = { -1 };
 			update(inv);
 		}
-		
+
+		void update_triangle_data(basic_flat_triangle_list<cuda::simple_triangle> &ftl, int offset, 
+								  float3 *v, float3 *n, float2 *t, uint3 *I, int triangles,
+								  int wg_size, int iter, int work_groups, int3 *wg_data);
+
+		// HIDDEN DES WILL NOT WORK
 		void connection::cuda_triangle_data::update(drawelement_ref ref) {
+			for (auto it : drawelement_by_mesh) {
+				cuda_triangle_data::group_data &group = it.second;
+				group.vbo_v.map();
+				group.vbo_n.map();
+				group.vbo_t.map();
+				group.vbo_i.map();
+
+				update_triangle_data(ftl, group.offset,
+									 (float3*)group.vbo_v.device_ptr, (float3*)group.vbo_n.device_ptr, (float2*)group.vbo_t.device_ptr, 
+									 (uint3*)group.vbo_i.device_ptr, group.triangles,
+									 work_group_size, work_group_iterations, group.work_groups, group.work_group_data);
+				
+				group.vbo_v.unmap();
+				group.vbo_n.unmap();
+				group.vbo_t.unmap();
+				group.vbo_i.unmap();
+			}
 		}
 	
 	

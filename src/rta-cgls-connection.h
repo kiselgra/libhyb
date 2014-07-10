@@ -73,6 +73,7 @@ namespace rta {
 				void unmap();
 			};
 
+		public:
 			struct cuda_triangle_data {
 				struct drawelement_conversion {
 					drawelement_conversion(drawelement_ref de) : de(de) {}

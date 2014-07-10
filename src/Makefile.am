@@ -3,6 +3,7 @@ lib_LTLIBRARIES = libhyb.la
 # libconfigfiles_la_SOURCES = grammar.yy  lexer.ll  parser.h  token.h lexer.h config_creator.h configfile.h configfile.cpp
 libhyb_la_SOURCES = \
 					area-light-rays.cpp area-light-rays.h \
+					gpu-triangles.cu \
 					rta-cgls-connection.cpp rta-cgls-connection.h \
 					pbrt.h \
 					shadowrays.cpp shadowrays.h \
@@ -23,12 +24,21 @@ library_include_HEADERS = \
 					trav-util.h
 
 
+
+
 # setting c++ flags:
 # AM_CXXFLAGS = -Wall -ansi -pedantic -ggdb -pg
 
 # setting c preprocessor flags for main project
 libhyb_la_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" $(RTA_CFLAGS) $(CGLS_CFLAGS)
 libhyb_la_LIBADD = $(RTA_LIBS) $(CGLS_LIBS)
+
+SUFFIXES: .x .cu
+
+
+.cu.o:
+	echo "############### $(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v"
+	$(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v
 
 if CAN_USE_GUILE
 bin_PROGRAMS = viewer-cgls-rta
@@ -38,7 +48,6 @@ viewer_cgls_rta_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -
 viewer_cgls_rta_CXXFLAGS = -fopenmp
 viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS)
 
-SUFFIXES: .x
 snarf_opts = @GUILE_DEF@ $(AM_CPPFLAGS) $(CPPFLAGS) $(viewer_cgls_rta_CPPFLAGS)
 .c.x:
 	guile-snarf $< $(snarf_opts) > $@

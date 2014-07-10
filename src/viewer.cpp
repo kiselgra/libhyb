@@ -86,6 +86,9 @@ void setup_rta(std::string plugin) {
 
 	rta_connection = new rta::cgls::connection(plugin);
 	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
+
+	static rta::cgls::connection::cuda_triangle_data *ctd = rta::cgls::connection::convert_scene_to_cuda_triangle_data(the_scene);
+
 	int rays_w = cmdline.res.x, rays_h = cmdline.res.y;
 	rta::rt_set set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
 
