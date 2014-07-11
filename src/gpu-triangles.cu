@@ -2,6 +2,8 @@
 #include <librta/cuda-vec.h>
 #include <librta/cuda-kernels.h>
 
+#include <iostream>
+
 using namespace rta;
 using namespace std;
 
@@ -25,7 +27,7 @@ namespace rta {
 					if (wg_size * i + local_thread_id >= batch_size)
 						break;
 
-					int tri_id = batch_offset    // work_group_id * wg_size * iter 	// batch-size times batch-number
+					int tri_id = batch_offset    					// batch tri-offset depends on drawelement sizes, as not all batches are filled.
 					           + wg_size * i						// iteration offset in batch
 							   + local_thread_id;					// current triangle in sub-batch
 					cuda::simple_triangle out;
@@ -52,9 +54,17 @@ namespace rta {
 
 			dim3 threads(wg_size);
 			dim3 blocks = rta::cuda::block_configuration_2d(wg_size*work_groups, 1, threads);
+
+			cout << "Conversion." << endl;
+			cout << "  Triangles:   " << ftl.triangles << endl;
+			cout << "  Offset:      " << offset << endl;
+			cout << "  Triangles2:  " << triangles << endl;
+			cout << "  wg_size:     " << wg_size << endl;
+			cout << "  iter:        " << iter << endl;
+			cout << "  work_groups: " << work_groups << endl;
 			k::update_triangle_data<<<blocks,threads>>>(ftl.triangle, ftl.triangles, offset,
 														v, n, t, I, triangles,
-														wg_size, iter, work_groups, wg_data);
+														wg_size, iter, work_groups/100, wg_data);
 		}
 
 	}

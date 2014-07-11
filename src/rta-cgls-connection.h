@@ -83,6 +83,7 @@ namespace rta {
 					int work_groups;
 				};
 				struct group_data {
+					int id;
 					group_data() : offset(0), triangles(0), work_groups(0), work_group_data(0) {}
 					std::vector<drawelement_conversion> elements;
 					int offset;
@@ -94,10 +95,11 @@ namespace rta {
 				};
 				int work_group_size;
 				int work_group_iterations;
-				std::map<mesh_ref,group_data> drawelement_by_mesh;
+				std::map<mesh_ref,group_data*> drawelement_by_mesh;
 				basic_flat_triangle_list<cuda::simple_triangle> ftl;
 				void update();
 				void update(drawelement_ref ref);
+				basic_flat_triangle_list<simple_triangle> cpu_ftl();
 			};
 
 		public:

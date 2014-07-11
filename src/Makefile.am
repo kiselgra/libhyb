@@ -38,7 +38,7 @@ SUFFIXES: .x .cu
 
 .cu.o:
 	echo "############### $(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v"
-	$(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v
+	$(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v -lineinfo
 
 if CAN_USE_GUILE
 bin_PROGRAMS = viewer-cgls-rta
