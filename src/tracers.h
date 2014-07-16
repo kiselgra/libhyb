@@ -75,12 +75,13 @@ namespace example {
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
 
+			tri_t *triangles = set.basic_as<box_t, tri_t>()->canonical_triangle_ptr();
 			vec3_t bc, tmp;
 			for (int y = 0; y < h; ++y)
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
+						tri_t &tri = triangles[ti.ref];
 						ti.barycentric_coord(&bc);
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
@@ -98,16 +99,18 @@ namespace example {
 						make_vec3f(&normals.pixel(x,y), 0, 0, 0);
 					}
 				}
+			set.basic_as<box_t, tri_t>()->free_canonical_triangles(triangles);
 		}
 
 		virtual void evaluate_material() {
 			cout << "evaluating material..." << endl;
+			tri_t *triangles = set.basic_as<box_t, tri_t>()->canonical_triangle_ptr();
 			for (int y = 0; y < h; ++y) {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
+						tri_t &tri = triangles[ti.ref];
 						material_t *mat = rta::material(tri.material_index);
 						vec3f col = (*mat)();
 						if (mat->diffuse_texture) {
@@ -127,6 +130,7 @@ namespace example {
 						make_vec3f(material+y*w+x, 0, 0, 0);
 				}
 			}
+			set.basic_as<box_t, tri_t>()->free_canonical_triangles(triangles);
 		}
 
 		virtual void compute() {
