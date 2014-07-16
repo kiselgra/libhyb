@@ -17,6 +17,9 @@
  *  don't do this at home.
  */
 
+extern rta::basic_flat_triangle_list<rta::simple_triangle> *ftl;
+extern rta::cgls::connection::cuda_triangle_data *ctd;
+
 namespace example {
 	using namespace rta;
 	using namespace std;
@@ -66,6 +69,17 @@ namespace example {
 		}
 
 		virtual void primary_visibility() {
+			cout << "regen bvh..." << endl;
+			ctd->update();
+			if (set.basic_ctor<rta::cuda::simple_aabb, rta::cuda::simple_triangle>()->expects_host_triangles()) {
+				static rta::basic_flat_triangle_list<rta::simple_triangle> the_ftl = ctd->cpu_ftl();
+				ftl = &the_ftl;
+				set.as = set.basic_ctor<box_t,tri_t>()->build((typename tri_t::input_flat_triangle_list_t*)ftl);
+			}
+			else
+				set.as = set.basic_ctor<box_t,tri_t>()->build((typename tri_t::input_flat_triangle_list_t*)&ctd->ftl);
+			set.basic_rt<box_t, tri_t>()->acceleration_structure(dynamic_cast<basic_acceleration_structure<box_t,tri_t>*>(set.as));
+
 			cout << "tracing..." << endl;
 			vec3f pos, dir, up;
 			matrix4x4f *lookat_matrix = lookat_matrix_of_cam(current_camera());

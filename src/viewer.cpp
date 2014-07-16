@@ -75,9 +75,13 @@ void advance_anim(interaction_mode *m, int x, int y) {
 
 static rta::cgls::connection *rta_connection = 0;
 static example::use_case *use_case = 0;
+	
+rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = 0;
+rta::cgls::connection::cuda_triangle_data *ctd = 0;
 
 void setup_rta(std::string plugin) {
 	bool use_cuda = true;
+// 	bool use_cuda = false;
 	if (plugin == "default/choice")
 		if (use_cuda)
 			plugin = "bbvh-cuda";
@@ -89,11 +93,11 @@ void setup_rta(std::string plugin) {
 	args.push_back("lbvh");
 	rta_connection = new rta::cgls::connection(plugin, args);
 #ifdef OLDSCHOOL
-	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
+	ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
 #else
-	static rta::cgls::connection::cuda_triangle_data *ctd = rta::cgls::connection::convert_scene_to_cuda_triangle_data(the_scene);
+	ctd = rta::cgls::connection::convert_scene_to_cuda_triangle_data(the_scene);
 	static rta::basic_flat_triangle_list<rta::simple_triangle> the_ftl = ctd->cpu_ftl();
-	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = &the_ftl;
+	ftl = &the_ftl;
 #endif
 	int rays_w = cmdline.res.x, rays_h = cmdline.res.y;
 	rta::rt_set set = rta::plugin_create_rt_set(*ftl, rays_w, rays_h);
@@ -104,6 +108,16 @@ void setup_rta(std::string plugin) {
 		use_case = new example::simple_lighting_with_shadows<rta::simple_aabb, rta::simple_triangle>(set, rays_w, rays_h, the_scene);
 	}
 	else {
+		if (!set.basic_ctor<rta::cuda::simple_aabb, rta::cuda::simple_triangle>()->expects_host_triangles()) {
+			cout << "does not want host tris!" << endl;
+			typedef rta::cuda::simple_aabb box_t;
+			typedef rta::cuda::simple_triangle tri_t;
+			set.as = set.basic_ctor<box_t,tri_t>()->build((rta::cuda::simple_triangle::input_flat_triangle_list_t*)&ctd->ftl);
+			set.basic_rt<box_t,tri_t>()->acceleration_structure(dynamic_cast<rta::basic_acceleration_structure<box_t,tri_t>*>(set.as));
+			cout << "done!" << endl;
+		}
+
+
 // 		use_case = new example::simple_material<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h);
 // 		use_case = new example::simple_lighting<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
 		use_case = new example::simple_lighting_with_shadows<rta::cuda::simple_aabb, rta::cuda::simple_triangle>(set, rays_w, rays_h, the_scene);
