@@ -20,7 +20,7 @@ namespace rta {
 
 	class connection {
 	public:
-		connection(const std::string &plugin_name) throw (cannot_load_rta_plugin);
+		connection(const std::string &plugin_name, const std::vector<std::string> &args) throw (cannot_load_rta_plugin);
 	};
 
 
@@ -103,9 +103,9 @@ namespace rta {
 			};
 
 		public:
-			connection(const std::string &plugin_name) 
+			connection(const std::string &plugin_name, const std::vector<std::string> &args = std::vector<std::string>())
 				throw (cannot_load_rta_plugin)
-					: rta::connection(plugin_name) {
+					: rta::connection(plugin_name, args) {
 			}
 
 			static rta::basic_flat_triangle_list<rta::simple_triangle>* convert_scene_to_ftl(scene_ref scene);

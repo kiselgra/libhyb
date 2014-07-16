@@ -16,6 +16,8 @@ while (( "$#" )); do
 		last_O="$1"
 	elif [[ "$1" == "-std=gnu++0x" ]] ; then	# new standard is not available in nvcc.
 		true;
+	elif [[ "$1" == "-std=gnu++11" ]] ; then	# new standard is not available in nvcc.
+		true;
 	elif [[ "$1" == "-Wreturn-type" ]] ; then	# not available in nvcc?
 		true;
 	elif [[ "$1" == "-pthread" ]] ; then	# not available in nvcc?

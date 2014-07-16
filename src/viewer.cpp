@@ -77,14 +77,17 @@ static rta::cgls::connection *rta_connection = 0;
 static example::use_case *use_case = 0;
 
 void setup_rta(std::string plugin) {
-	bool use_cuda = false;
+	bool use_cuda = true;
 	if (plugin == "default/choice")
 		if (use_cuda)
 			plugin = "bbvh-cuda";
 		else
 			plugin = "bbvh";
 
-	rta_connection = new rta::cgls::connection(plugin);
+	vector<string> args;
+	args.push_back("-b");
+	args.push_back("lbvh");
+	rta_connection = new rta::cgls::connection(plugin, args);
 #ifdef OLDSCHOOL
 	static rta::basic_flat_triangle_list<rta::simple_triangle> *ftl = rta::cgls::connection::convert_scene_to_ftl(the_scene);
 #else

@@ -15,7 +15,7 @@ bool operator<(const mesh_ref &a, const mesh_ref &b) {
 
 namespace rta {
 
-	connection::connection(const std::string &name) throw (cannot_load_rta_plugin) {
+	connection::connection(const std::string &name, const std::vector<std::string> &args) throw (cannot_load_rta_plugin) {
 		if (load_plugin_functions(name))
 			cout << "rt plugin loaded just fine." << endl;
 		else {
@@ -23,8 +23,12 @@ namespace rta {
 			throw cannot_load_rta_plugin(name);
 		}
 
-		char *argv[] = { (char*)"rt" };
-		plugin_parse_cmdline(1, argv);
+		if (args.size() >= 9)
+			throw "too many arguments to plugin. extend libhyb!";
+		const char *argv[10] = { (char*)"rt", 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		for (int i = 0; i < args.size(); ++i)
+			argv[i+1] = args[i].c_str();
+		plugin_parse_cmdline(1+args.size(), (char**)argv);
 		plugin_initialize();
 	}
 
@@ -210,7 +214,7 @@ namespace rta {
 				group->vbo_n.register_buffer(mesh_vertex_buffer(it.first, 1));
 				if (group->has_tex_coords)
 					group->vbo_t.register_buffer(mesh_vertex_buffer(it.first, 2));
-				group->vbo_i.register_buffer(mesh_index_buffer(it.first));
+				group->vbo_i.register_buffer(mesh_indexbuffer(it.first));
 				// still, we have to wait for the memcpy before we free
 				checked_cuda(cudaDeviceSynchronize());
 				delete [] host_data;
