@@ -71,6 +71,7 @@ namespace example {
 		virtual void primary_visibility() {
 			cout << "regen bvh..." << endl;
 			ctd->update();
+			delete set.as;
 			if (set.basic_ctor<rta::cuda::simple_aabb, rta::cuda::simple_triangle>()->expects_host_triangles()) {
 				static rta::basic_flat_triangle_list<rta::simple_triangle> the_ftl = ctd->cpu_ftl();
 				ftl = &the_ftl;
