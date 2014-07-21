@@ -23,11 +23,14 @@ namespace rta {
 			throw cannot_load_rta_plugin(name);
 		}
 
-		if (args.size() >= 9)
+		if (args.size() >= 48)
 			throw "too many arguments to plugin. extend libhyb!";
-		const char *argv[10] = { (char*)"rt", 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		const char *argv[50];
+		argv[0] = (char*)"rt";
 		for (int i = 0; i < args.size(); ++i)
 			argv[i+1] = args[i].c_str();
+		for (int i = args.size()+1; i < 50; ++i)
+			argv[i] = 0;
 		plugin_parse_cmdline(1+args.size(), (char**)argv);
 		plugin_initialize();
 	}
