@@ -115,6 +115,7 @@ namespace example {
 					}
 				}
 			set.basic_as<box_t, tri_t>()->free_canonical_triangles(triangles);
+			cout << "primary visibility took " << set.basic_rt<box_t, tri_t>()->timings.front() << "ms." << endl;
 		}
 
 		virtual void evaluate_material() {
@@ -324,13 +325,14 @@ namespace example {
 			shadow_set.basic_rt<box_t, tri_t>()->ray_generator(shadow_set.rgen);
 			ref = light;
 		}
-		void trace(const image<vec3f,1> *hitpoints) {
+		float trace(const image<vec3f,1> *hitpoints) {
 			cout << "computing shadows for light " << light_name(ref) << "... " << endl;
 			matrix4x4f *trafo = light_trafo(ref);
 			vec3f pos;
 			extract_pos_vec3f_of_matrix(&pos, trafo);
 			plsrg->setup(hitpoints, pos);
 			shadow_set.rt->trace();
+			return shadow_set.basic_rt<box_t, tri_t>()->timings.front();
 		}
 	};
 
@@ -374,8 +376,9 @@ namespace example {
 			for (auto light_iter = lights.begin(); light_iter != lights.end(); ++light_iter) {
 				this->add_lighting(*light_iter, parent::lighting_buffer);
 			}
+			float ms = 0;
 			for (int i = 0; i < shadow_passes.size(); ++i) {
-				shadow_passes[i].trace(&hitpoints);
+				ms += shadow_passes[i].trace(&hitpoints);
 				this->add_lighting(point_lights[i], lighting_buffer[i]);
 				for (int y = 0; y < h; ++y)
 					for (int x = 0; x < w; ++x) {
@@ -386,6 +389,7 @@ namespace example {
 						}
 					}
 			}
+			cout << "tracing shadow rays took " << ms << "ms." << endl;
 		}
 
 		virtual void compute() {
