@@ -17,6 +17,9 @@
  *  don't do this at home.
  */
 
+extern rta::basic_flat_triangle_list<rta::simple_triangle> *ftl;
+extern rta::cgls::connection::cuda_triangle_data *ctd;
+
 namespace example {
 	using namespace rta;
 	using namespace std;
@@ -66,6 +69,18 @@ namespace example {
 		}
 
 		virtual void primary_visibility() {
+			cout << "regen bvh..." << endl;
+			ctd->update();
+			delete set.as;
+			if (set.basic_ctor<rta::cuda::simple_aabb, rta::cuda::simple_triangle>()->expects_host_triangles()) {
+				static rta::basic_flat_triangle_list<rta::simple_triangle> the_ftl = ctd->cpu_ftl();
+				ftl = &the_ftl;
+				set.as = set.basic_ctor<box_t,tri_t>()->build((typename tri_t::input_flat_triangle_list_t*)ftl);
+			}
+			else
+				set.as = set.basic_ctor<box_t,tri_t>()->build((typename tri_t::input_flat_triangle_list_t*)&ctd->ftl);
+			set.basic_rt<box_t, tri_t>()->acceleration_structure(dynamic_cast<basic_acceleration_structure<box_t,tri_t>*>(set.as));
+
 			cout << "tracing..." << endl;
 			vec3f pos, dir, up;
 			matrix4x4f *lookat_matrix = lookat_matrix_of_cam(current_camera());
@@ -75,12 +90,13 @@ namespace example {
 			crgs->setup(&pos, &dir, &up, 2*camera_fovy(current_camera()));
 			set.rt->trace();
 
+			tri_t *triangles = set.basic_as<box_t, tri_t>()->canonical_triangle_ptr();
 			vec3_t bc, tmp;
 			for (int y = 0; y < h; ++y)
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
+						tri_t &tri = triangles[ti.ref];
 						ti.barycentric_coord(&bc);
 						const vec3_t &va = vertex_a(tri);
 						const vec3_t &vb = vertex_b(tri);
@@ -98,16 +114,18 @@ namespace example {
 						make_vec3f(&normals.pixel(x,y), 0, 0, 0);
 					}
 				}
+			set.basic_as<box_t, tri_t>()->free_canonical_triangles(triangles);
 		}
 
 		virtual void evaluate_material() {
 			cout << "evaluating material..." << endl;
+			tri_t *triangles = set.basic_as<box_t, tri_t>()->canonical_triangle_ptr();
 			for (int y = 0; y < h; ++y) {
 				int y_out = h - y - 1;
 				for (int x = 0; x < w; ++x) {
 					const triangle_intersection<tri_t> &ti = primary->intersection(x,y);
 					if (ti.valid()) {
-						tri_t &tri = set.basic_as<box_t, tri_t>()->triangle_ptr()[ti.ref];
+						tri_t &tri = triangles[ti.ref];
 						material_t *mat = rta::material(tri.material_index);
 						vec3f col = (*mat)();
 						if (mat->diffuse_texture) {
@@ -127,6 +145,7 @@ namespace example {
 						make_vec3f(material+y*w+x, 0, 0, 0);
 				}
 			}
+			set.basic_as<box_t, tri_t>()->free_canonical_triangles(triangles);
 		}
 
 		virtual void compute() {

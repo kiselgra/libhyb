@@ -217,7 +217,7 @@ namespace rta {
 				group->vbo_n.register_buffer(mesh_vertex_buffer(it.first, 1));
 				if (group->has_tex_coords)
 					group->vbo_t.register_buffer(mesh_vertex_buffer(it.first, 2));
-				group->vbo_i.register_buffer(mesh_indexbuffer(it.first));
+				group->vbo_i.register_buffer(mesh_index_buffer(it.first));
 				// still, we have to wait for the memcpy before we free
 				checked_cuda(cudaDeviceSynchronize());
 				delete [] host_data;
