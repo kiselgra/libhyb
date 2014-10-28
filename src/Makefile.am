@@ -36,17 +36,23 @@ libhyb_la_LIBADD = $(RTA_LIBS) $(CGLS_LIBS)
 SUFFIXES: .x .cu
 
 
-.cu.o:
+.cu.lo:
 	echo "############### $(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v"
 	$(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v -lineinfo
 
+#.cu.o:
+#	echo "############### $(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v"
+#	$(LIBTOOL) --tag=CXX --mode=compile $(top_srcdir)/nvcc-wrapper $(DEFAULT_INCLUDES) $(libhyb_la_CXXFLAGS) $(CXXFLAGS) $(libhyb_la_CPPFLAGS) $(CPPFLAGS) -c -o $@ $< -v -lineinfo
+#
 if CAN_USE_GUILE
 bin_PROGRAMS = viewer-cgls-rta
 BUILT_SOURCES = cmdline.x
-viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h tracers.h $(libhyb_la_SOURCES)
+viewer_cgls_rta_SOURCES = viewer.cpp cmdline.cpp cmdline.h tracers.h #$(libhyb_la_SOURCES)
 viewer_cgls_rta_CPPFLAGS = -D PACKAGE=\"$(PACKAGE)\" -D VERSION=\"$(VERSION)\" -D DATADIR=\"$(cglsdata)\" $(RTA_CFLAGS) $(CGLS_CFLAGS) -DWITH_GUILE $(GUILE_CFLAGS)
 viewer_cgls_rta_CXXFLAGS = -fopenmp
-viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS)
+viewer_cgls_rta_LDADD = $(RTA_LIBS) $(CGLS_LIBS) .libs/libhyb.a
+
+.libs/libhyb.a: libhyb.la
 
 snarf_opts = @GUILE_DEF@ $(AM_CPPFLAGS) $(CPPFLAGS) $(viewer_cgls_rta_CPPFLAGS)
 .c.x:
