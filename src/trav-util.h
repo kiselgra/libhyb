@@ -3,15 +3,17 @@
 
 #include "pbrt.h"
 
+#include <librta/cuda-vec.h>
+
 namespace rta {
 	/*! \brief transforms the vector into some tangent space given by the normal.
 	 *  \note taken from librctest (kai)
 	 */
-	inline vec3_t make_tangential(vec3_t &dir, const vec3_t &normal) {
-		vec3_t tangent = { -y_comp(normal), x_comp(normal), 0 };
+	template<typename vec3> inline vec3 make_tangential(vec3 &dir, const vec3 &normal) {
+		vec3 tangent = { -y_comp(normal), x_comp(normal), 0 };
 		if (x_comp(tangent) == 0 && y_comp(tangent) == 0)
 			tangent = { 1,0,0 };
-		vec3_t bitan;
+		vec3 bitan;
 		cross_vec3f(&bitan, &normal, &tangent);
 
 		x_comp(dir) = x_comp(tangent) * x_comp(dir)  +  x_comp(bitan) * y_comp(dir)  +  x_comp(normal) * z_comp(dir);
@@ -21,9 +23,9 @@ namespace rta {
 	}
 
 	//! \note taken from librctest (kai)
-	inline void diffuse_bounce(vec3_t &dir, const vec3_t &n, float u1, float u2) {
-		vec3_t normal = n;
-		vec3_t neg_dir = {-dir.x, -dir.y, -dir.z};
+	template<typename vec3> inline void diffuse_bounce(vec3 &dir, const vec3 &n, float u1, float u2) {
+		vec3 normal = n;
+		vec3 neg_dir = {-dir.x, -dir.y, -dir.z};
 		if (dot_vec3f(&normal, &neg_dir) < 0) {
 			normal.x = -normal.x;
 			normal.y = -normal.y;
@@ -58,20 +60,20 @@ namespace rta {
 		return p;
 	}
 
-	inline float clamp(float x, float min, float max) {
+	heterogenous inline float clamp(float x, float min, float max) {
 		if (x > max) return max;
 		if (x < min) return min;
 		return x;
 	}
 
 	//! http://en.wikipedia.org/wiki/Smoothstep
-	inline float smoothstep(float edge0, float edge1, float x) {
+	heterogenous inline float smoothstep(float edge0, float edge1, float x) {
 		x = clamp((x - edge0)/(edge1 - edge0), 0.0f, 1.0f); 
 		return x*x*(3 - 2*x);
 	}
 
 	//! http://en.wikipedia.org/wiki/Smoothstep
-	inline float smootherstep(float edge0, float edge1, float x) {
+	heterogenous inline float smootherstep(float edge0, float edge1, float x) {
 		x = clamp((x - edge0)/(edge1 - edge0), 0.0f, 1.0f);
 		return x*x*x*(x*(x*6 - 15) + 10);
 	}
