@@ -9,17 +9,17 @@ namespace rta {
 	/*! \brief transforms the vector into some tangent space given by the normal.
 	 *  \note taken from librctest (kai)
 	 */
-	template<typename vec3> inline vec3 make_tangential(vec3 &dir, const vec3 &normal) {
+	template<typename vec3> inline vec3 make_tangential(const vec3 &dir, const vec3 &normal) {
 		vec3 tangent = { -y_comp(normal), x_comp(normal), 0 };
 		if (x_comp(tangent) == 0 && y_comp(tangent) == 0)
 			tangent.x = 1, tangent.y = tangent.z = 0;
 		vec3 bitan;
 		cross_vec3f(&bitan, &normal, &tangent);
-
-		x_comp(dir) = x_comp(tangent) * x_comp(dir)  +  x_comp(bitan) * y_comp(dir)  +  x_comp(normal) * z_comp(dir);
-		y_comp(dir) = y_comp(tangent) * x_comp(dir)  +  y_comp(bitan) * y_comp(dir)  +  y_comp(normal) * z_comp(dir);
-		z_comp(dir) = z_comp(tangent) * x_comp(dir)  +  z_comp(bitan) * y_comp(dir)  +  z_comp(normal) * z_comp(dir);
-
+		vec3 new_dir;
+		x_comp(new_dir) = x_comp(tangent) * x_comp(dir)  +  x_comp(bitan) * y_comp(dir)  +  x_comp(normal) * z_comp(dir);
+		y_comp(new_dir) = y_comp(tangent) * x_comp(dir)  +  y_comp(bitan) * y_comp(dir)  +  y_comp(normal) * z_comp(dir);
+		z_comp(new_dir) = z_comp(tangent) * x_comp(dir)  +  z_comp(bitan) * y_comp(dir)  +  z_comp(normal) * z_comp(dir);
+		return new_dir;
 	}
 
 	//! \note taken from librctest (kai)
