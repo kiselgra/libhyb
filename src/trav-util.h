@@ -9,7 +9,7 @@ namespace rta {
 	/*! \brief transforms the vector into some tangent space given by the normal.
 	 *  \note taken from librctest (kai)
 	 */
-	template<typename vec3> inline vec3 make_tangential(const vec3 &dir, const vec3 &normal) {
+	template<typename vec3> heterogenous inline vec3 make_tangential(const vec3 &dir, const vec3 &normal) {
 		vec3 tangent = { -y_comp(normal), x_comp(normal), 0 };
 		if (x_comp(tangent) == 0 && y_comp(tangent) == 0)
 			tangent.x = 1, tangent.y = tangent.z = 0;
@@ -23,7 +23,7 @@ namespace rta {
 	}
 
 	//! \note taken from librctest (kai)
-	template<typename vec3> inline void diffuse_bounce(vec3 &dir, const vec3 &n, float u1, float u2) {
+	template<typename vec3> heterogenous inline void diffuse_bounce(vec3 &dir, const vec3 &n, float u1, float u2) {
 		vec3 normal = n;
 		vec3 neg_dir = {-dir.x, -dir.y, -dir.z};
 		if (dot_vec3f(&normal, &neg_dir) < 0) {
@@ -36,26 +36,26 @@ namespace rta {
 	}
 
 
-	template<typename tri_t> inline vec3_t intersection_position(const rta::triangle_intersection<tri_t> &ti, tri_t *triangles) {
-		vec3_t bc;
+	template<typename tri_t> heterogenous inline typename tri_t::vec3_t intersection_position(const rta::triangle_intersection<tri_t> &ti, tri_t *triangles) {
+		typename tri_t::vec3_t bc;
 		ti.barycentric_coord(&bc);
 		tri_t ref = triangles[ti.ref];
-		const vec3_t &va = vertex_a(ref);
-		const vec3_t &vb = vertex_b(ref);
-		const vec3_t &vc = vertex_c(ref);
-		vec3_t p;
+		const typename tri_t::vec3_t &va = vertex_a(ref);
+		const typename tri_t::vec3_t &vb = vertex_b(ref);
+		const typename tri_t::vec3_t &vc = vertex_c(ref);
+		typename tri_t::vec3_t p;
 		rta::barycentric_interpolation(&p, &bc, &va, &vb, &vc);
 		return p;
 	}
 
-	template<typename tri_t> inline vec3_t intersection_normal(const rta::triangle_intersection<tri_t> &ti, tri_t *triangles) {
-		vec3_t bc;
+	template<typename tri_t> heterogenous inline typename tri_t::vec3_t intersection_normal(const rta::triangle_intersection<tri_t> &ti, tri_t *triangles) {
+		typename tri_t::vec3_t bc;
 		ti.barycentric_coord(&bc);
 		tri_t ref = triangles[ti.ref];
-		const vec3_t &va = normal_a(ref);
-		const vec3_t &vb = normal_b(ref);
-		const vec3_t &vc = normal_c(ref);
-		vec3_t p;
+		const typename tri_t::vec3_t &va = normal_a(ref);
+		const typename tri_t::vec3_t &vb = normal_b(ref);
+		const typename tri_t::vec3_t &vc = normal_c(ref);
+		typename tri_t::vec3_t p;
 		rta::barycentric_interpolation(&p, &bc, &va, &vb, &vc);
 		return p;
 	}
