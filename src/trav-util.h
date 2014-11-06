@@ -12,7 +12,7 @@ namespace rta {
 	template<typename vec3> inline vec3 make_tangential(vec3 &dir, const vec3 &normal) {
 		vec3 tangent = { -y_comp(normal), x_comp(normal), 0 };
 		if (x_comp(tangent) == 0 && y_comp(tangent) == 0)
-			tangent = { 1,0,0 };
+			tangent.x = 1, tangent.y = tangent.z = 0;
 		vec3 bitan;
 		cross_vec3f(&bitan, &normal, &tangent);
 
