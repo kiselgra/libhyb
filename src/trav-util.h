@@ -22,6 +22,19 @@ namespace rta {
 		return new_dir;
 	}
 
+	template<typename vec3> heterogenous inline void make_tangent_frame(const vec3 &dir, const vec3 &normal, vec3 &T, vec3 &B) {
+		T.x =  -y_comp(normal);
+		T.y = x_comp(normal); 
+		T.z = 0;
+		if (x_comp(T) == 0 && y_comp(T) == 0)
+			T.x = 1, T.y = T.z = 0;
+		cross_vec3f(&B, &normal, &T);
+	}
+
+	template<typename vec3> heterogenous inline vec3 reflect(const vec3 &dir, const vec3 &normal) {
+		return dir - 2.0f * (normal | dir) * normal;
+	}
+
 	//! \note taken from librctest (kai)
 	template<typename vec3> heterogenous inline void diffuse_bounce(vec3 &dir, const vec3 &n, float u1, float u2) {
 		vec3 normal = n;
