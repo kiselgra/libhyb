@@ -22,13 +22,29 @@ namespace rta {
 		return new_dir;
 	}
 
-	template<typename vec3> heterogenous inline void make_tangent_frame(const vec3 &dir, const vec3 &normal, vec3 &T, vec3 &B) {
+	template<typename vec3> heterogenous inline void make_tangent_frame(const vec3 &normal, vec3 &T, vec3 &B) {
 		T.x =  -y_comp(normal);
 		T.y = x_comp(normal); 
 		T.z = 0;
 		if (x_comp(T) == 0 && y_comp(T) == 0)
 			T.x = 1, T.y = T.z = 0;
 		cross_vec3f(&B, &normal, &T);
+	}
+
+	template<typename vec3> heterogenous inline vec3 transform_to_tangent_frame(const vec3 &dir, const vec3 &T, const vec3 &B, const vec3 &N) {
+		vec3 new_dir;
+		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  x_comp(B) * y_comp(dir)  +  x_comp(N) * z_comp(dir);
+		y_comp(new_dir) = y_comp(T) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  y_comp(N) * z_comp(dir);
+		z_comp(new_dir) = z_comp(T) * x_comp(dir)  +  z_comp(B) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
+		return new_dir;
+	}
+
+	template<typename vec3> heterogenous inline vec3 transform_from_tangent_frame(const vec3 &dir, const vec3 &T, const vec3 &B, const vec3 &N) {
+		vec3 new_dir;
+		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  y_comp(T) * y_comp(dir)  +  z_comp(T) * z_comp(dir);
+		y_comp(new_dir) = x_comp(B) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  z_comp(B) * z_comp(dir);
+		z_comp(new_dir) = x_comp(N) * x_comp(dir)  +  y_comp(N) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
+		return new_dir;
 	}
 
 	template<typename vec3> heterogenous inline vec3 reflect(const vec3 &dir, const vec3 &normal) {
