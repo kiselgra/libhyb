@@ -8,6 +8,7 @@
 namespace rta {
 	/*! \brief transforms the vector into some tangent space given by the normal.
 	 *  \note taken from librctest (kai)
+	 *  \todo well, this is the other way around, or is it?
 	 */
 	template<typename vec3> heterogenous inline vec3 make_tangential(const vec3 &dir, const vec3 &normal) {
 		vec3 tangent = { -y_comp(normal), x_comp(normal), 0 };
@@ -33,17 +34,17 @@ namespace rta {
 
 	template<typename vec3> heterogenous inline vec3 transform_to_tangent_frame(const vec3 &dir, const vec3 &T, const vec3 &B, const vec3 &N) {
 		vec3 new_dir;
-		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  x_comp(B) * y_comp(dir)  +  x_comp(N) * z_comp(dir);
-		y_comp(new_dir) = y_comp(T) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  y_comp(N) * z_comp(dir);
-		z_comp(new_dir) = z_comp(T) * x_comp(dir)  +  z_comp(B) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
+		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  y_comp(T) * y_comp(dir)  +  z_comp(T) * z_comp(dir);
+		y_comp(new_dir) = x_comp(B) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  z_comp(B) * z_comp(dir);
+		z_comp(new_dir) = x_comp(N) * x_comp(dir)  +  y_comp(N) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
 		return new_dir;
 	}
 
 	template<typename vec3> heterogenous inline vec3 transform_from_tangent_frame(const vec3 &dir, const vec3 &T, const vec3 &B, const vec3 &N) {
 		vec3 new_dir;
-		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  y_comp(T) * y_comp(dir)  +  z_comp(T) * z_comp(dir);
-		y_comp(new_dir) = x_comp(B) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  z_comp(B) * z_comp(dir);
-		z_comp(new_dir) = x_comp(N) * x_comp(dir)  +  y_comp(N) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
+		x_comp(new_dir) = x_comp(T) * x_comp(dir)  +  x_comp(B) * y_comp(dir)  +  x_comp(N) * z_comp(dir);
+		y_comp(new_dir) = y_comp(T) * x_comp(dir)  +  y_comp(B) * y_comp(dir)  +  y_comp(N) * z_comp(dir);
+		z_comp(new_dir) = z_comp(T) * x_comp(dir)  +  z_comp(B) * y_comp(dir)  +  z_comp(N) * z_comp(dir);
 		return new_dir;
 	}
 
