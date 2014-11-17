@@ -105,6 +105,14 @@ namespace rta {
 			}
 
 			rta::material_t *mat = new rta::material_t(material_name(cgls_mat), v3, texname);
+
+			v4 = material_specular_color(cgls_mat);
+			v3 = vec3f(v4->x, v4->y, v4->z);
+			mat->specular_color = v3;
+			texture_ref specular = texture_called("specular_tex");
+			if (valid_texture_ref(specular))
+				mat->add_specular_texture(texture_source_filename(specular));
+
 			int id = rta::register_material(mat);
 			state.material_map[cgls_mat.id] = id;
 			cout << "made material " << id << " (" << material_name(cgls_mat) << " " << v3.x << " " << v3.y << " " << v3.z << " " << texname << ")"<< endl;
