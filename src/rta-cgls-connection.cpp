@@ -105,6 +105,7 @@ namespace rta {
 			}
 
 			rta::material_t *mat = new rta::material_t(material_name(cgls_mat), v3, texname);
+			mat->alpha = v4->w;
 
 			v4 = material_specular_color(cgls_mat);
 			v3 = vec3f(v4->x, v4->y, v4->z);
@@ -112,6 +113,10 @@ namespace rta {
 			texture_ref specular = texture_called("specular_tex");
 			if (valid_texture_ref(specular))
 				mat->add_specular_texture(texture_source_filename(specular));
+			
+			texture_ref mask = texture_called("mask_tex");
+			if (valid_texture_ref(mask))
+				mat->add_alpha_texture(texture_source_filename(mask));
 
 			int id = rta::register_material(mat);
 			state.material_map[cgls_mat.id] = id;
@@ -207,7 +212,10 @@ namespace rta {
 					for (int g = 0; g < element.work_groups; ++g) {
 						host_data[batch].x = offset;
 						if (g == element.work_groups-1)
-							host_data[batch].y = element.length % batch_size;
+							if (element.length % batch_size != 0)
+								host_data[batch].y = element.length % batch_size;
+							else
+								host_data[batch].y = batch_size;
 						else
 							host_data[batch].y = batch_size;
 						host_data[batch].z = element.material_id;
